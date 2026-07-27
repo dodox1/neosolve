@@ -291,13 +291,59 @@ bool System::SolveLeastSquares() {
         }
     }
 
-    SparseMatrix<double> AAt = mat.A.num * mat.A.num.transpose();
-    AAt.makeCompressed();
-    VectorXd z(mat.n);
+    if(mat.m == 0 || mat.n == 0) {
+        mat.X = VectorXd::Zero(mat.n);
+        return true;
+    }
 
-    if(!SolveLinearSystem(AAt, mat.B.num, &z)) return false;
+    if(mat.m <= mat.n) {
+        // We want the minimum norm solution of the underdetermined system
+        // A*x = B, which is x = A'*(A*A')^-1*B. Forming the normal equations
+        // A*A' explicitly squares the condition number of A; since our
+        // Jacobian mixes dimensionless quantities with lengths, areas and
+        // volumes, its condition number already grows with the size of the
+        // sketch, and squaring it is what makes large models fail. Eigen's
+        // rank-revealing QR then drops pivots below a threshold proportional
+        // to the largest column norm, and its rank-truncated solve silently
+        // zeroes the corresponding component of the Newton step, so the
+        // residual of one equation can never be driven to zero and we report
+        // unsolvable constraints for a perfectly solvable sketch.
+        //
+        // Factor A' instead, as A'*P = Q*R. Then A*A' = P*R'*R*P', so
+        //     z = (A*A')^-1*B = P*R^-1*R'^-1*P'*B,
+        // which is two triangular solves, and the rank decision is taken on
+        // R (whose pivots scale like A, not like A*A').
+        SparseMatrix<double> At = mat.A.num.transpose();
+        At.makeCompressed();
 
-    mat.X = mat.A.num.transpose() * z;
+        SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> solver;
+        solver.compute(At);
+        if(solver.info() != Success) return false;
+
+        const int rank = (int)solver.rank();
+        VectorXd rhs = solver.colsPermutation().transpose() * mat.B.num;
+        VectorXd v   = VectorXd::Zero(mat.m);
+        if(rank > 0) {
+            SparseMatrix<double> R = solver.matrixR().topLeftCorner(rank, rank);
+            VectorXd w = R.triangularView<Upper>().transpose()
+                             .solve(rhs.topRows(rank));
+            v.topRows(rank) = R.triangularView<Upper>().solve(w);
+        }
+        VectorXd z = solver.colsPermutation() * v;
+
+        mat.X = mat.A.num.transpose() * z;
+    } else {
+        // More equations than unknowns; A' is wide, which Eigen's sparse QR
+        // does not handle, so fall back to the normal equations. A system
+        // like that is redundant anyway, and gets reported as such.
+        SparseMatrix<double> AAt = mat.A.num * mat.A.num.transpose();
+        AAt.makeCompressed();
+        VectorXd z(mat.m);
+
+        if(!SolveLinearSystem(AAt, mat.B.num, &z)) return false;
+
+        mat.X = mat.A.num.transpose() * z;
+    }
 
     for(int c = 0; c < mat.n; c++) {
         mat.X[c] *= scale[c];
