@@ -1123,11 +1123,13 @@ void Group::GenerateShellAndMesh() {
                 BRepOffsetAPI_ThruSections loftBuilder(Standard_True, Standard_False);
 
                 // Get first profile
+                int wiresAdded = 0;
                 SBezierLoopSetSet *sblssA = &(srcA->bezierLoops);
                 for(SBezierLoopSet *sbls = sblssA->l.First(); sbls; sbls = sblssA->l.NextAfter(sbls)) {
                     FaceBuilder fb = FaceBuilder::FromBezierLoopSet(sbls);
-                    if(fb.IsValid()) {
+                    if(fb.IsValid() && !fb.GetOuterWire().IsNull()) {
                         loftBuilder.AddWire(fb.GetOuterWire());
+                        wiresAdded++;
                         break;  // Only use first loop for now
                     }
                 }
@@ -1136,16 +1138,23 @@ void Group::GenerateShellAndMesh() {
                 SBezierLoopSetSet *sblssB = &(srcB->bezierLoops);
                 for(SBezierLoopSet *sbls = sblssB->l.First(); sbls; sbls = sblssB->l.NextAfter(sbls)) {
                     FaceBuilder fb = FaceBuilder::FromBezierLoopSet(sbls);
-                    if(fb.IsValid()) {
+                    if(fb.IsValid() && !fb.GetOuterWire().IsNull()) {
                         loftBuilder.AddWire(fb.GetOuterWire());
+                        wiresAdded++;
                         break;  // Only use first loop for now
                     }
                 }
 
-                loftBuilder.Build();
+                // ThruSections dereferences a null curve and segfaults when it is
+                // built with fewer than two sections, so don't even try.
+                if(wiresAdded < 2) {
+                    dbp("OCC loft: need two usable profiles, got %d", wiresAdded);
+                } else {
+                    loftBuilder.Build();
 
-                if(loftBuilder.IsDone()) {
-                    thisSolidModel->shape = loftBuilder.Shape();
+                    if(loftBuilder.IsDone()) {
+                        thisSolidModel->shape = loftBuilder.Shape();
+                    }
                 }
             } catch(const Standard_Failure &e) {
                 dbp("OCC loft failed: %s", e.GetMessageString());
