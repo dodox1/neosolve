@@ -88,6 +88,13 @@ void GraphicsWindow::ClearSelection() {
 void GraphicsWindow::ClearNonexistentSelectionItems() {
     bool change = false;
     Selection *s;
+
+    if((hover.constraint.v && !SK.constraint.FindByIdNoOops(hover.constraint)) ||
+       (hover.entity.v     && !SK.entity.FindByIdNoOops(hover.entity))) {
+        hover.Clear();
+        change = true;
+    }
+
     selection.ClearTags();
     for(s = selection.First(); s; s = selection.NextAfter(s)) {
         if(s->constraint.v && !(SK.constraint.FindByIdNoOops(s->constraint))) {
@@ -536,8 +543,12 @@ void GraphicsWindow::HitTestMakeSelection(Point2d mp) {
                 SMesh *m = &(g->displayMesh);
 
                 uint32_t v = m->FirstIntersectionWith(mp);
-                if(v) {
-                    sel.entity.v = v;
+                // The face handle is baked into the mesh triangles, so it can
+                // name an entity that does not exist; check before hovering.
+                hEntity hf = { v };
+                Entity *fe = v ? SK.entity.FindByIdNoOops(hf) : nullptr;
+                if(fe != nullptr && fe->IsFace()) {
+                    sel.entity = hf;
                     Hover hov = {};
                     hov.selection = sel;
                     hoverList.Add(&hov);

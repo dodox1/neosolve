@@ -215,6 +215,16 @@ void TextWindow::ShowListOfGroups() {
 }
 
 
+// A text window link can name an entity that does not exist: its handle is
+// synthesized from a group or request, and the screen may be stale.
+static void HoverEntityIfExists(hEntity he) {
+    if(!SK.entity.FindByIdNoOops(he)) {
+        return;
+    }
+    SS.GW.hover.entity = he;
+    SS.GW.hover.emphasized = true;
+}
+
 //-----------------------------------------------------------------------------
 // The screen that shows information about a specific group, and allows the
 // user to edit various things about it.
@@ -222,25 +232,25 @@ void TextWindow::ShowListOfGroups() {
 void TextWindow::ScreenHoverGroupWorkplane(int link, uint32_t v) {
     SS.GW.hover.Clear();
     hGroup hg = { v };
-    SS.GW.hover.entity = hg.entity(0);
-    SS.GW.hover.emphasized = true;
+    HoverEntityIfExists(hg.entity(0));
 }
 void TextWindow::ScreenHoverEntity(int link, uint32_t v) {
     SS.GW.hover.Clear();
     hEntity he = { v };
-    SS.GW.hover.entity = he;
-    SS.GW.hover.emphasized = true;
+    HoverEntityIfExists(he);
 }
 void TextWindow::ScreenHoverRequest(int link, uint32_t v) {
     SS.GW.hover.Clear();
     hRequest hr = { v };
-    SS.GW.hover.entity = hr.entity(0);
-    SS.GW.hover.emphasized = true;
+    HoverEntityIfExists(hr.entity(0));
 }
 void TextWindow::ScreenHoverConstraint(int link, uint32_t v) {
     if( SS.GW.showConstraints == GraphicsWindow::ShowConstraintMode::SCM_NOSHOW ) return;
     hConstraint hc = { v };
     SS.GW.hover.Clear();
+    if(!SK.constraint.FindByIdNoOops(hc)) {
+        return;
+    }
     SS.GW.hover.constraint = hc;
     SS.GW.hover.emphasized = true;
 }
