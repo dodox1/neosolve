@@ -27,6 +27,7 @@
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <ShapeFix_Face.hxx>
 #include <cmath>
 
 namespace SolveSpace {
@@ -298,6 +299,16 @@ void FaceBuilder::BuildFaces(const SBezierLoopSet *sbls) {
 
     if(faceBuilder.IsDone()) {
         TopoDS_Face face = faceBuilder.Face();
+
+        // BRepBuilderAPI_MakeFace::Add() takes the hole wires as they come and
+        // does not check that they are wound opposite to the outer one, so a
+        // hole can end up adding its area to the face instead of removing it,
+        // leaving the face invalid and the extrusion solid where it should be
+        // hollow. Let OCC sort the wire orientations out.
+        ShapeFix_Face fixer(face);
+        if(fixer.FixOrientation()) {
+            face = fixer.Face();
+        }
 
         // Check if face normal matches expected normal, reverse if not
         BRepAdaptor_Surface surf(face);
