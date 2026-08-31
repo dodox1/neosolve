@@ -218,7 +218,9 @@ void SolveSpaceUI::GenerateAll(Generate type, bool andFindFree, bool genForBBox)
     // the bounding box to turn relative chord tolerance to absolute.
     if(!SS.exportMode && !genForBBox) {
         BBox box;
-        if(SS.bboxValid) {
+        // This pass also solves the groups in range and generates their loops,
+        // so skip it only when the range is empty.
+        if(SS.bboxValid && first < 0) {
             // Use cached bbox from previous generation
             box = SS.cachedEntityBBox;
         } else {
