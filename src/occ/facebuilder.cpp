@@ -27,6 +27,7 @@
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <ShapeFix_Face.hxx>
 #include <cmath>
 
 namespace SolveSpace {
@@ -298,6 +299,13 @@ void FaceBuilder::BuildFaces(const SBezierLoopSet *sbls) {
 
     if(faceBuilder.IsDone()) {
         TopoDS_Face face = faceBuilder.Face();
+
+        // Add() takes the hole wires as they come, so a hole wound like the
+        // outer one adds its area instead of removing it.
+        ShapeFix_Face fixer(face);
+        if(fixer.FixOrientation()) {
+            face = fixer.Face();
+        }
 
         // Check if face normal matches expected normal, reverse if not
         BRepAdaptor_Surface surf(face);
