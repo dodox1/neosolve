@@ -145,6 +145,7 @@ public:
     bool IsEmptyTriangle(int ap, int bp, int cp, double scaledEPS) const;
     bool IsEar(int bp, double scaledEps) const;
     bool BridgeToContour(SContour *sc, SEdgeList *el, List<Vector> *vl);
+    bool HasDuplicatePoints(double scaledEps) const;
     void ClipEarInto(SMesh *m, int bp, double scaledEps);
     void UvTriangulateInto(SMesh *m, SSurface *srf);
 };
