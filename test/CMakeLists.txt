@@ -70,6 +70,13 @@ set(testsuite_SOURCES
     group/translate_nd/test.cpp
 )
 
+# Tests for the OpenCASCADE paths, which upstream does not have. Kept in their
+# own directory so that the shared fixtures stay in step with upstream.
+if(USE_OPENCASCADE)
+    list(APPEND testsuite_SOURCES
+        occ/extrude_hole/test.cpp)
+endif()
+
 add_executable(solvespace-testsuite
     ${testsuite_SOURCES}
     $<TARGET_PROPERTY:resources,EXTRA_SOURCES>)
