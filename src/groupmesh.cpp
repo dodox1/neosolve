@@ -425,7 +425,7 @@ void Group::GenerateShellAndMesh() {
                 }
 
                 PROFILE_SCOPE("OccStepRepeat");
-                TopoDS_Shape accumulated;
+                TopTools_ListOfShape copies;
                 for(int a = a0; a < n; a++) {
                     int ap = a*2 - (subtype == Subtype::ONE_SIDED ? 0 : (n-1));
 
@@ -458,26 +458,30 @@ void Group::GenerateShellAndMesh() {
                     if(!transformer.IsDone()) {
                         continue;
                     }
-                    TopoDS_Shape transformed = transformer.Shape();
-
-                    // Combine with accumulated result
-                    if(accumulated.IsNull()) {
-                        accumulated = transformed;
-                    } else {
-                        // Use union (fuse) for combining copies
-                        try {
-                            BRepAlgoAPI_Fuse fuser(accumulated, transformed);
-                            if(fuser.IsDone()) {
-                                accumulated = fuser.Shape();
-                            }
-                        } catch(const Standard_Failure &e) {
-                            dbp("OCC step-and-repeat fuse failed: %s", e.GetMessageString());
-                        }
-                    }
+                    copies.Append(transformer.Shape());
                 }
 
-                if(!accumulated.IsNull()) {
-                    thisSolidModel->shape = accumulated;
+                // One fuse taking every copy at once, for the same reason as
+                // the extrude path above.
+                if(copies.Extent() == 1) {
+                    thisSolidModel->shape = copies.First();
+                } else if(copies.Extent() > 1) {
+                    try {
+                        TopTools_ListOfShape arguments;
+                        arguments.Append(copies.First());
+                        copies.RemoveFirst();
+
+                        BRepAlgoAPI_Fuse fuser;
+                        fuser.SetArguments(arguments);
+                        fuser.SetTools(copies);
+                        fuser.SetRunParallel(Standard_True);
+                        fuser.Build();
+                        if(fuser.IsDone()) {
+                            thisSolidModel->shape = fuser.Shape();
+                        }
+                    } catch(const Standard_Failure &e) {
+                        dbp("OCC step-and-repeat fuse failed: %s", e.GetMessageString());
+                    }
                 }
             } else
 #endif
