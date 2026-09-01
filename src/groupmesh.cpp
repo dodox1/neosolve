@@ -424,6 +424,7 @@ void Group::GenerateShellAndMesh() {
                     a0++; n++;
                 }
 
+                PROFILE_SCOPE("OccStepRepeat");
                 TopoDS_Shape accumulated;
                 for(int a = a0; a < n; a++) {
                     int ap = a*2 - (subtype == Subtype::ONE_SIDED ? 0 : (n-1));
@@ -1332,7 +1333,7 @@ void Group::GenerateShellAndMesh() {
                 runningSolidModel->faces = pg->runningSolidModel->faces;
                 runningSolidModel->edges = pg->runningSolidModel->edges;
                 // Create FACE_OCC entities for selection (uses our group's handles)
-                CreateOccFaceEntities(&SK.entity);
+                { PROFILE_SCOPE("OccFaceEntities"); CreateOccFaceEntities(&SK.entity); }
                 break;
             }
             pg = pg->PreviousGroup();
@@ -1452,11 +1453,11 @@ void Group::GenerateShellAndMesh() {
             }
         } else {
             // Extract face geometry for potential use in right-click menus
-            runningSolidModel->ExtractFaces();
+            { PROFILE_SCOPE("OccExtractFaces"); runningSolidModel->ExtractFaces(); }
             // Create FACE_OCC entities for these faces so they work with selection
             CreateOccFaceEntities(&SK.entity);
-            runningSolidModel->Triangulate(SS.ChordTolMm());
-            runningSolidModel->ExtractEdges();
+            { PROFILE_SCOPE("OccTriangulate"); runningSolidModel->Triangulate(SS.ChordTolMm()); }
+            { PROFILE_SCOPE("OccExtractEdges"); runningSolidModel->ExtractEdges(); }
         }
     }
 #endif
