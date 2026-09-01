@@ -10,6 +10,7 @@
 // Copyright 2008-2013 Jonathan Westhues.
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
+#include "profiler.h"
 #include <algorithm>
 #include <set>
 #include <map>
@@ -941,6 +942,7 @@ bool SContour::HasDuplicatePoints(double scaledEps) const {
 }
 
 void SContour::UvTriangulateInto(SMesh *m, SSurface *srf) {
+    PROFILE_SCOPE("UvTriangulate");
     Vector tu, tv;
     srf->TangentsAt(0.5, 0.5, &tu, &tv);
     double s = sqrt(tu.MagSquared() + tv.MagSquared());
