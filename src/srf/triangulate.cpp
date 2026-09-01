@@ -923,6 +923,23 @@ void SContour::ClipEarInto(SMesh *m, int bp, double scaledEps) {
     l.RemoveTagged();
 }
 
+// Does any point of this contour appear on it twice? True for a contour that
+// holes have been bridged into, since a bridge is walked out and back.
+bool SContour::HasDuplicatePoints(double scaledEps) const {
+    std::vector<int> order(l.n);
+    for(int i = 0; i < l.n; i++) order[i] = i;
+
+    std::sort(order.begin(), order.end(), [&](int a, int b) {
+        if(l[a].p.x != l[b].p.x) return l[a].p.x < l[b].p.x;
+        return l[a].p.y < l[b].p.y;
+    });
+
+    for(int i = 1; i < l.n; i++) {
+        if(l[order[i]].p.Equals(l[order[i - 1]].p, scaledEps)) return true;
+    }
+    return false;
+}
+
 void SContour::UvTriangulateInto(SMesh *m, SSurface *srf) {
     Vector tu, tv;
     srf->TangentsAt(0.5, 0.5, &tu, &tv);
@@ -949,8 +966,13 @@ void SContour::UvTriangulateInto(SMesh *m, SSurface *srf) {
     l.RemoveTagged();
 
     // For planar surfaces with larger polygons, use O(n log n) monotone
-    // triangulation instead of O(n²) ear-clipping
-    if(srf->degm == 1 && srf->degn == 1 && l.n > 30) {
+    // triangulation instead of O(n²) ear-clipping. Not for a contour that
+    // holes were bridged into: a bridge is two coincident edges walked in
+    // opposite directions, which the sweep line cannot order against each
+    // other, and the diagonals come out crossing the polygon. Such a contour
+    // visits both ends of every bridge twice, so duplicated points are what
+    // we look for.
+    if(srf->degm == 1 && srf->degn == 1 && l.n > 30 && !HasDuplicatePoints(scaledEps)) {
         if(MonotoneTriangulate(this, m, scaledEps)) {
             return;
         }
