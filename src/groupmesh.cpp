@@ -598,6 +598,7 @@ void Group::GenerateShellAndMesh() {
         // Use OCC for extrusion
         SBezierLoopSetSet *sblss = &(src->bezierLoops);
         SBezierLoopSet *sbls;
+        TopTools_ListOfShape prisms;
         for(sbls = sblss->l.First(); sbls; sbls = sblss->l.NextAfter(sbls)) {
             // Convert sketch profile to OCC face
             FaceBuilder fb = FaceBuilder::FromBezierLoopSet(sbls);
@@ -621,17 +622,36 @@ void Group::GenerateShellAndMesh() {
                         result.Reverse();
                     }
 
-                    // Store the result - for now we combine multiple profiles
-                    if(thisSolidModel->shape.IsNull()) {
-                        thisSolidModel->shape = result;
-                    } else {
-                        // Fuse additional profiles
-                        thisSolidModel->shape = BRepAlgoAPI_Fuse(
-                            thisSolidModel->shape, result).Shape();
-                    }
+                    prisms.Append(result);
                 }
             } catch(const Standard_Failure &e) {
                 // OCC extrusion failed - silently fall through to native NURBS
+            }
+        }
+
+        // One fuse taking every profile at once, rather than one fuse per
+        // profile onto the shape so far. Fusing as we go makes OCC intersect
+        // everything accumulated against each new profile, so the cost grows
+        // with the square of their number, and a sketch patterned into a grid
+        // arrives here as a single extrude of hundreds of profiles.
+        if(prisms.Extent() == 1) {
+            thisSolidModel->shape = prisms.First();
+        } else if(prisms.Extent() > 1) {
+            try {
+                TopTools_ListOfShape arguments;
+                arguments.Append(prisms.First());
+                prisms.RemoveFirst();
+
+                BRepAlgoAPI_Fuse fuser;
+                fuser.SetArguments(arguments);
+                fuser.SetTools(prisms);
+                fuser.SetRunParallel(Standard_True);
+                fuser.Build();
+                if(fuser.IsDone()) {
+                    thisSolidModel->shape = fuser.Shape();
+                }
+            } catch(const Standard_Failure &e) {
+                dbp("OCC extrude fuse failed: %s", e.GetMessageString());
             }
         }
 #else
