@@ -491,7 +491,7 @@ target_include_directories(solvespace-headless
     PUBLIC ${EIGEN3_INCLUDE_DIRS})
 
 target_link_libraries(solvespace-headless
-    PRIVATE
+    PUBLIC
     solvespace-core)
 
 # solvespace command-line executable
