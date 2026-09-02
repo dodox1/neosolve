@@ -613,8 +613,22 @@ void Group::GenerateShellAndMesh() {
             gp_Vec occDir = OccUtil::ToOccVec(extDir);
 
             try {
+                // MakePrism sweeps from wherever the profile sits and takes no
+                // starting point, so for a two-sided extrude, whose solid
+                // starts at tbot behind the sketch, the profile has to be moved
+                // there first. The entities that draw the outline are generated
+                // from tbot and ttop and were always in the right place, which
+                // is why the outline looked two-sided while the solid did not.
+                TopoDS_Shape profile = fb.GetFaces();
+                if(!tbot.Equals(Vector::From(0, 0, 0))) {
+                    gp_Trsf toStart;
+                    toStart.SetTranslation(OccUtil::ToOccVec(tbot));
+                    profile = BRepBuilderAPI_Transform(profile, toStart,
+                                                       Standard_True).Shape();
+                }
+
                 // Create the prism (extrusion)
-                BRepPrimAPI_MakePrism prism(fb.GetFaces(), occDir);
+                BRepPrimAPI_MakePrism prism(profile, occDir);
                 if(prism.IsDone()) {
                     TopoDS_Shape result = prism.Shape();
 
