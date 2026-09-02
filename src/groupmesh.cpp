@@ -795,7 +795,22 @@ void Group::GenerateShellAndMesh() {
 
             try {
                 double totalAngle = anglef - angles;
-                BRepPrimAPI_MakeRevol revol(fb.GetFaces(), occAxis, totalAngle);
+
+                // BRepPrimAPI_MakeRevol only sweeps forward from where the
+                // profile sits, and takes no starting angle, so a two-sided
+                // revolve -- which starts half of its sweep behind the profile
+                // -- needs the profile turned back to that start first. The
+                // shell path hands both ends of the sweep to
+                // MakeFromHelicalRevolutionOf and has no such problem.
+                TopoDS_Shape profile = fb.GetFaces();
+                if(angles != 0.0) {
+                    gp_Trsf toStart;
+                    toStart.SetRotation(occAxis, angles);
+                    profile = BRepBuilderAPI_Transform(profile, toStart,
+                                                       Standard_True).Shape();
+                }
+
+                BRepPrimAPI_MakeRevol revol(profile, occAxis, totalAngle);
                 if(revol.IsDone()) {
                     if(thisSolidModel->shape.IsNull()) {
                         thisSolidModel->shape = revol.Shape();
