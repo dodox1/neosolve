@@ -607,8 +607,18 @@ void Group::GenerateShellAndMesh() {
             gp_Vec occDir = OccUtil::ToOccVec(extDir);
 
             try {
+                // MakePrism sweeps from wherever the profile sits and takes no
+                // starting point, so move the profile to tbot first.
+                TopoDS_Shape profile = fb.GetFaces();
+                if(!tbot.Equals(Vector::From(0, 0, 0))) {
+                    gp_Trsf toStart;
+                    toStart.SetTranslation(OccUtil::ToOccVec(tbot));
+                    profile = BRepBuilderAPI_Transform(profile, toStart,
+                                                       Standard_True).Shape();
+                }
+
                 // Create the prism (extrusion)
-                BRepPrimAPI_MakePrism prism(fb.GetFaces(), occDir);
+                BRepPrimAPI_MakePrism prism(profile, occDir);
                 if(prism.IsDone()) {
                     TopoDS_Shape result = prism.Shape();
 
