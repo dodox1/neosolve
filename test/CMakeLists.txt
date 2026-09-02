@@ -72,7 +72,9 @@ set(testsuite_SOURCES
 # own directory so that the shared fixtures stay in step with upstream.
 if(USE_OPENCASCADE)
     list(APPEND testsuite_SOURCES
-        occ/extrude_hole/test.cpp)
+        occ/extrude_hole/test.cpp
+        occ/extrude_two_sided/test.cpp
+        occ/revolve_two_sided/test.cpp)
 endif()
 
 add_executable(solvespace-testsuite
