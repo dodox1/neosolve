@@ -770,7 +770,18 @@ void Group::GenerateShellAndMesh() {
 
             try {
                 double totalAngle = anglef - angles;
-                BRepPrimAPI_MakeRevol revol(fb.GetFaces(), occAxis, totalAngle);
+
+                // MakeRevol only sweeps forward from where the profile sits and
+                // takes no starting angle, so turn the profile back to angles.
+                TopoDS_Shape profile = fb.GetFaces();
+                if(angles != 0.0) {
+                    gp_Trsf toStart;
+                    toStart.SetRotation(occAxis, angles);
+                    profile = BRepBuilderAPI_Transform(profile, toStart,
+                                                       Standard_True).Shape();
+                }
+
+                BRepPrimAPI_MakeRevol revol(profile, occAxis, totalAngle);
                 if(revol.IsDone()) {
                     if(thisSolidModel->shape.IsNull()) {
                         thisSolidModel->shape = revol.Shape();
