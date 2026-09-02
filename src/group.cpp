@@ -339,8 +339,16 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             g.opA = SS.GW.activeGroup;
             g.valA = 1.0;  // default fillet radius in mm
             g.name = C_("group-name", "fillet");
-            // Capture selected edges from the current selection
-            prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection, &g.selectedEdges);
+            // Capture selected edges from the current selection. An empty list
+            // means every edge, so a selection we could not match to any edge
+            // has to stop here instead of rounding the whole solid.
+            if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
+                                                            &g.selectedEdges)) {
+                Error(_("None of the selected items is an edge of the solid. "
+                        "Select the edges to round, or select nothing to round "
+                        "every edge. Curved edges cannot be selected yet."));
+                return;
+            }
             break;
         }
 
@@ -354,8 +362,15 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             g.opA = SS.GW.activeGroup;
             g.valA = 1.0;  // default chamfer distance in mm
             g.name = C_("group-name", "chamfer");
-            // Capture selected edges from the current selection
-            prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection, &g.selectedEdges);
+            // Capture selected edges from the current selection; see the fillet
+            // case above for why an unmatched selection cannot be ignored.
+            if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
+                                                            &g.selectedEdges)) {
+                Error(_("None of the selected items is an edge of the solid. "
+                        "Select the edges to bevel, or select nothing to bevel "
+                        "every edge. Curved edges cannot be selected yet."));
+                return;
+            }
             break;
         }
 

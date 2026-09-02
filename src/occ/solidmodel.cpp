@@ -546,19 +546,21 @@ void SolidModelOcc::ExportSTL(const Platform::Path &path) const {
 
 // Template implementation for finding selected edges
 template<typename SelectionList>
-void SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
+bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
                                        std::vector<uint32_t> *outEdges) const {
-    if(!selection || !outEdges) return;
+    if(!selection || !outEdges) return true;
     outEdges->clear();
 
-    if(shapeAcc.IsNull()) return;
+    if(shapeAcc.IsNull()) return true;
 
     // Collect selected line segment endpoints
     std::vector<std::pair<Vector, Vector>> selectedLines;
+    int selectedEntities = 0;
 
     for(int i = 0; i < selection->n; i++) {
         const auto &sel = (*selection)[i];
         if(sel.entity.v == 0) continue;
+        selectedEntities++;
 
         Entity *e = SK.GetEntity(sel.entity);
         if(!e) continue;
@@ -571,7 +573,10 @@ void SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
         }
     }
 
-    if(selectedLines.empty()) return;
+    // Nothing selected at all is a request to take every edge; a selection we
+    // could make nothing of is not, and has to be reported rather than treated
+    // as one.
+    if(selectedLines.empty()) return selectedEntities == 0;
 
     // Match selected lines against OCC edges
     double tol = 1e-3;  // 1 micron tolerance
@@ -624,10 +629,12 @@ void SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
 
         explorer.Next();
     }
+
+    return !outEdges->empty();
 }
 
 // Explicit instantiation for List<GraphicsWindow::Selection>
-template void SolidModelOcc::FindSelectedEdges(
+template bool SolidModelOcc::FindSelectedEdges(
     const List<GraphicsWindow::Selection> *selection,
     std::vector<uint32_t> *outEdges) const;
 
