@@ -171,7 +171,9 @@ public:
     // Find which OCC edges match the selected entities
     // Stores matching edge indices in outEdges
     template<typename SelectionList>
-    void FindSelectedEdges(const SelectionList *selection, std::vector<uint32_t> *outEdges) const;
+    // False if the selection held entities but none matched an edge, which
+    // the callers must tell apart from an empty selection.
+    bool FindSelectedEdges(const SelectionList *selection, std::vector<uint32_t> *outEdges) const;
 
     // Find which OCC faces match the selected face entities
     // Stores matching face indices in outFaces

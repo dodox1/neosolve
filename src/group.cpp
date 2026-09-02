@@ -338,8 +338,15 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             g.opA = SS.GW.activeGroup;
             g.valA = 1.0;  // default fillet radius in mm
             g.name = C_("group-name", "fillet");
-            // Capture selected edges from the current selection
-            prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection, &g.selectedEdges);
+            // An empty list means every edge, so a selection that matched
+            // none has to stop here rather than round the whole solid.
+            if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
+                                                            &g.selectedEdges)) {
+                Error(_("None of the selected items is an edge of the solid. "
+                        "Select the edges to round, or select nothing to round "
+                        "every edge."));
+                return;
+            }
             break;
         }
 
@@ -353,8 +360,14 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             g.opA = SS.GW.activeGroup;
             g.valA = 1.0;  // default chamfer distance in mm
             g.name = C_("group-name", "chamfer");
-            // Capture selected edges from the current selection
-            prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection, &g.selectedEdges);
+            // See the fillet case above.
+            if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
+                                                            &g.selectedEdges)) {
+                Error(_("None of the selected items is an edge of the solid. "
+                        "Select the edges to bevel, or select nothing to bevel "
+                        "every edge."));
+                return;
+            }
             break;
         }
 
