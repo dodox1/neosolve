@@ -824,7 +824,16 @@ void Group::GenerateShellAndMesh() {
                                                        Standard_True).Shape();
                 }
 
-                BRepPrimAPI_MakeRevol revol(profile, occAxis, totalAngle);
+                // A full turn has to go through the constructor that takes no
+                // angle. Asked for exactly 2*pi the other one leaves the start
+                // and end of the sweep as two coincident faces, and a boolean
+                // against that seam comes out invalid. The shell path draws the
+                // same distinction, MakeFromRevolutionOf against
+                // MakeFromHelicalRevolutionOf.
+                bool fullTurn = fabs(totalAngle) >= 2 * PI - LENGTH_EPS;
+                BRepPrimAPI_MakeRevol revol = fullTurn
+                    ? BRepPrimAPI_MakeRevol(profile, occAxis)
+                    : BRepPrimAPI_MakeRevol(profile, occAxis, totalAngle);
                 if(revol.IsDone()) {
                     if(thisSolidModel->shape.IsNull()) {
                         thisSolidModel->shape = revol.Shape();
