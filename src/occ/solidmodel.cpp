@@ -376,12 +376,16 @@ void SolidModelOcc::Triangulate(double chordTol) {
     displayMesh.Clear();
 
     try {
-        // Generate mesh with specified tolerance
-        // Using relative deflection mode for better results on imported models
+        // Generate mesh with specified tolerance. The deflection is the chord
+        // tolerance in millimetres -- SolveSpaceUI::ChordTolMm() -- so it has to
+        // be given as an absolute one. Relative mode reads it as a factor of
+        // each face's own size instead, which both ignores the tolerance the
+        // user asked for and tessellates neighbouring faces of very different
+        // size to different densities, leaving the mesh with naked edges.
         IMeshTools_Parameters params;
         params.Deflection = chordTol;
         params.Angle = OccUtil::DEFAULT_MESH_ANGLE;
-        params.Relative = Standard_True;
+        params.Relative = Standard_False;
         params.InParallel = Standard_True;
 
         BRepMesh_IncrementalMesh meshGen(shapeAcc, params);
