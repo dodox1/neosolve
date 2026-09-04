@@ -222,11 +222,8 @@ void SolveSpaceUI::GenerateAll(Generate type, bool andFindFree, bool genForBBox)
     // the bounding box to turn relative chord tolerance to absolute.
     if(!SS.exportMode && !genForBBox) {
         BBox box;
-        // The bounding box pass is also the pass that solves the groups in
-        // range and generates their loops, so it may only be skipped when the
-        // range is empty and there is nothing to solve. The cache is
-        // invalidated by MarkGroupDirty, but plenty of callers regenerate
-        // without going through it.
+        // This pass also solves the groups in range and generates their loops,
+        // so skip it only when the range is empty.
         if(SS.bboxValid && first < 0) {
             // Use cached bbox from previous generation
             box = SS.cachedEntityBBox;
