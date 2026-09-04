@@ -770,7 +770,14 @@ void Group::GenerateShellAndMesh() {
 
             try {
                 double totalAngle = anglef - angles;
-                BRepPrimAPI_MakeRevol revol(fb.GetFaces(), occAxis, totalAngle);
+
+                // A full turn has to go through the constructor that takes no
+                // angle; asked for exactly 2*pi the other one can leave the
+                // seam behind as two coincident faces.
+                bool fullTurn = fabs(totalAngle) >= 2 * PI - LENGTH_EPS;
+                BRepPrimAPI_MakeRevol revol = fullTurn
+                    ? BRepPrimAPI_MakeRevol(fb.GetFaces(), occAxis)
+                    : BRepPrimAPI_MakeRevol(fb.GetFaces(), occAxis, totalAngle);
                 if(revol.IsDone()) {
                     if(thisSolidModel->shape.IsNull()) {
                         thisSolidModel->shape = revol.Shape();
