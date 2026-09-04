@@ -968,12 +968,9 @@ void SContour::UvTriangulateInto(SMesh *m, SSurface *srf) {
     l.RemoveTagged();
 
     // For planar surfaces with larger polygons, use O(n log n) monotone
-    // triangulation instead of O(n²) ear-clipping. Not for a contour that
-    // holes were bridged into: a bridge is two coincident edges walked in
-    // opposite directions, which the sweep line cannot order against each
-    // other, and the diagonals come out crossing the polygon. Such a contour
-    // visits both ends of every bridge twice, so duplicated points are what
-    // we look for.
+    // triangulation instead of O(n²) ear-clipping. Not for a bridged contour:
+    // the sweep line cannot order a bridge's two coincident edges against each
+    // other, and the diagonals come out crossing the polygon.
     if(srf->degm == 1 && srf->degn == 1 && l.n > 30 && !HasDuplicatePoints(scaledEps)) {
         if(MonotoneTriangulate(this, m, scaledEps)) {
             return;
