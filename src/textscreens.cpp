@@ -215,9 +215,8 @@ void TextWindow::ShowListOfGroups() {
 }
 
 
-// The links in the text window may refer to entities that don't exist, either
-// because the screen is stale, or because the handle is synthesized from a
-// group or request that never generated that entity.
+// A text window link can name an entity that does not exist: its handle is
+// synthesized from a group or request, and the screen may be stale.
 static void HoverEntityIfExists(hEntity he) {
     if(!SK.entity.FindByIdNoOops(he)) {
         return;

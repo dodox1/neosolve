@@ -544,8 +544,7 @@ void GraphicsWindow::HitTestMakeSelection(Point2d mp) {
 
                 uint32_t v = m->FirstIntersectionWith(mp);
                 // The face handle is baked into the mesh triangles, so it can
-                // refer to an entity that no longer exists (or never did, for
-                // imported or boolean'd geometry); check before hovering it.
+                // name an entity that does not exist; check before hovering.
                 hEntity hf = { v };
                 Entity *fe = v ? SK.entity.FindByIdNoOops(hf) : nullptr;
                 if(fe != nullptr && fe->IsFace()) {
