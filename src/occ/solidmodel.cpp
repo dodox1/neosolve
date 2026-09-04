@@ -12,6 +12,7 @@
 
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <IMeshTools_Parameters.hxx>
+#include <IMeshData_Status.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <BRepBndLib.hxx>
@@ -20,6 +21,7 @@
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <Poly_Triangulation.hxx>
+#include <TopLoc_Location.hxx>
 #include <Poly.hxx>
 #include <Precision.hxx>
 #include <BRepAdaptor_Curve.hxx>
@@ -394,6 +396,22 @@ void SolidModelOcc::Triangulate(double chordTol) {
         if(!meshGen.IsDone()) {
             meshCacheValid = false;
             return;
+        }
+
+        // IsDone() is still true when the mesher gave up on a face, so the
+        // status flags are the only way to hear about it.
+        if(meshGen.GetStatusFlags() & IMeshData_Failure) {
+            int missing = 0, total = 0;
+            for(TopExp_Explorer ex(shapeAcc, TopAbs_FACE); ex.More(); ex.Next()) {
+                TopLoc_Location loc;
+                total++;
+                if(BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc).IsNull()) {
+                    missing++;
+                }
+            }
+            dbp("OCC could not mesh %d of %d faces at a chord tolerance of %g mm "
+                "(status 0x%x); the mesh is incomplete.",
+                missing, total, chordTol, (unsigned)meshGen.GetStatusFlags());
         }
 
         // Use a default gray color - actual color will be set by Group
