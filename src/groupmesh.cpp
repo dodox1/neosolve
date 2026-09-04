@@ -614,11 +614,7 @@ void Group::GenerateShellAndMesh() {
 
             try {
                 // MakePrism sweeps from wherever the profile sits and takes no
-                // starting point, so for a two-sided extrude, whose solid
-                // starts at tbot behind the sketch, the profile has to be moved
-                // there first. The entities that draw the outline are generated
-                // from tbot and ttop and were always in the right place, which
-                // is why the outline looked two-sided while the solid did not.
+                // starting point, so move the profile to tbot first.
                 TopoDS_Shape profile = fb.GetFaces();
                 if(!tbot.Equals(Vector::From(0, 0, 0))) {
                     gp_Trsf toStart;
@@ -810,12 +806,8 @@ void Group::GenerateShellAndMesh() {
             try {
                 double totalAngle = anglef - angles;
 
-                // BRepPrimAPI_MakeRevol only sweeps forward from where the
-                // profile sits, and takes no starting angle, so a two-sided
-                // revolve -- which starts half of its sweep behind the profile
-                // -- needs the profile turned back to that start first. The
-                // shell path hands both ends of the sweep to
-                // MakeFromHelicalRevolutionOf and has no such problem.
+                // MakeRevol only sweeps forward from where the profile sits and
+                // takes no starting angle, so turn the profile back to angles.
                 TopoDS_Shape profile = fb.GetFaces();
                 if(angles != 0.0) {
                     gp_Trsf toStart;
