@@ -350,6 +350,29 @@ static void ProcessShapeWithFaces(const TopoDS_Shape &shape, SMesh &mesh, RgbaCo
     }
 }
 
+namespace {
+
+// Trace a face's boundary into SS.nakedEdges, which the graphics window draws
+// in the error style. The native kernel marks geometry it could not handle the
+// same way.
+void MarkFaceBoundary(const TopoDS_Face &face) {
+    for(TopExp_Explorer ex(face, TopAbs_EDGE); ex.More(); ex.Next()) {
+        try {
+            BRepAdaptor_Curve curve(TopoDS::Edge(ex.Current()));
+            GCPnts_TangentialDeflection pts(curve, M_PI / 16.0, 1e3);
+            for(int i = 2; i <= pts.NbPoints(); i++) {
+                gp_Pnt a = pts.Value(i - 1), b = pts.Value(i);
+                SS.nakedEdges.AddEdge(Vector::From(a.X(), a.Y(), a.Z()),
+                                      Vector::From(b.X(), b.Y(), b.Z()));
+            }
+        } catch(const Standard_Failure &) {
+            // Skip edges that can't be discretized
+        }
+    }
+}
+
+} // namespace
+
 void SolidModelOcc::Triangulate(double chordTol) {
     if(shapeAcc.IsNull()) {
         displayMesh.Clear();
@@ -404,10 +427,11 @@ void SolidModelOcc::Triangulate(double chordTol) {
             int missing = 0, total = 0;
             for(TopExp_Explorer ex(shapeAcc, TopAbs_FACE); ex.More(); ex.Next()) {
                 TopLoc_Location loc;
+                const TopoDS_Face &face = TopoDS::Face(ex.Current());
                 total++;
-                if(BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc).IsNull()) {
-                    missing++;
-                }
+                if(!BRep_Tool::Triangulation(face, loc).IsNull()) continue;
+                missing++;
+                if(!SS.exportMode) MarkFaceBoundary(face);
             }
             dbp("OCC could not mesh %d of %d faces at a chord tolerance of %g mm "
                 "(status 0x%x); the mesh is incomplete.",
