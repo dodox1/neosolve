@@ -98,8 +98,10 @@ const SolveSpaceUI::SaveTable SolveSpaceUI::SAVED[] = {
     { 'g',  "Group.opA.v",              'x',    &(SS.sv.g.opA.v)              },
     { 'g',  "Group.opB.v",              'x',    &(SS.sv.g.opB.v)              },
     { 'g',  "Group.valA",               'f',    &(SS.sv.g.valA)               },
+#ifdef HAVE_OPENCASCADE
     { 'g',  "Group.selectedEdges",      'E',    &(SS.sv.g.selectedEdges)      },
     { 'g',  "Group.filletFaces",       'F',    &(SS.sv.g.filletFaces)        },
+#endif
     { 'g',  "Group.valB",               'f',    &(SS.sv.g.valB)               },
     { 'g',  "Group.valC",               'f',    &(SS.sv.g.valC)               },
     { 'g',  "Group.color",              'c',    &(SS.sv.g.color)              },
@@ -218,10 +220,12 @@ const SolveSpaceUI::SaveTable SolveSpaceUI::SAVED[] = {
 
 struct SAVEDptr {
     EntityMap      &M() { return *((EntityMap *)this); }
+#ifdef HAVE_OPENCASCADE
     std::vector<uint32_t> &E() { return *((std::vector<uint32_t> *)this); }
     std::vector<Group::FilletFace> &F() {
         return *((std::vector<Group::FilletFace> *)this);
     }
+#endif
     std::string    &S() { return *((std::string *)this); }
     Platform::Path &P() { return *((Platform::Path *)this); }
     bool      &b() { return *((bool *)this); }
@@ -245,8 +249,10 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
         if(fmt == 'f' && EXACT(p->f() == 0.0))    continue;
         if(fmt == 'x' && p->x() == 0)             continue;
         if(fmt == 'i')                            continue;
+#ifdef HAVE_OPENCASCADE
         if(fmt == 'E' && p->E().empty())          continue;
         if(fmt == 'F' && p->F().empty())          continue;
+#endif
 
         fprintf(fh, "%s=", SAVED[i].desc);
         switch(fmt) {
@@ -282,6 +288,7 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
                 break;
             }
 
+#ifdef HAVE_OPENCASCADE
             case 'E': {
                 // Edges by their position in the solid's edge list; without
                 // them the group reloads as "every edge".
@@ -306,6 +313,7 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
                 break;
             }
 
+#endif
             case 'i': break;
 
             default: ssassert(false, "Unexpected value format");
@@ -457,6 +465,7 @@ void SolveSpaceUI::LoadUsingTable(const Platform::Path &filename, char *key, cha
             switch(SAVED[i].fmt) {
                 case 'S': p->S() = val;                     break;
                 case 'b': p->b() = (atoi(val) != 0);        break;
+#ifdef HAVE_OPENCASCADE
                 case 'E': {
                     p->E().clear();
                     const char *at = val;
@@ -491,6 +500,7 @@ void SolveSpaceUI::LoadUsingTable(const Platform::Path &filename, char *key, cha
                     break;
                 }
 
+#endif
                 case 'd': p->d() = atoi(val);               break;
                 case 'f': p->f() = atof(val);               break;
                 case 'x': sscanf(val, "%x", &u); p->x()= u; break;

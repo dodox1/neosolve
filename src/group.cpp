@@ -84,6 +84,7 @@ void Group::ExtrusionForceVectorTo(const Vector &v) {
     SK.GetParam(h.param(2))->val = v.z;
 }
 
+#ifdef HAVE_OPENCASCADE
 // A face is kept as a point on it and its normal; an edge has only its
 // position in the edge list to go on.
 static bool CaptureSelection(Group *prevg, Group *g) {
@@ -103,6 +104,8 @@ static bool CaptureSelection(Group *prevg, Group *g) {
     }
     return true;
 }
+
+#endif
 
 void Group::MenuGroup(Command id)  {
     MenuGroup(id, Platform::Path());
