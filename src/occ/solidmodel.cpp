@@ -36,6 +36,7 @@
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <gp.hxx>
 #include <list>
 
 namespace SolveSpace {
@@ -234,8 +235,30 @@ static void ProcessFace(const TopoDS_Face &face, SMesh &mesh, RgbaColor color,
 
     Poly::ComputeNormals(triangulation);
 
+    // Poly::ComputeNormals averages within one face, so tangent faces disagree
+    // and every facet boundary reads as a sharp edge.
+    const bool fromSurface = triangulation->HasUVNodes();
+    BRepAdaptor_Surface surf(face);
+
     // Get transformation from face location
     gp_Trsf tr = loc.Transformation();
+
+    auto NormalAtNode = [&](int n) {
+        if(fromSurface) {
+            gp_Pnt2d uv = triangulation->UVNode(n);
+            gp_Pnt pos;
+            gp_Vec du, dv;
+            surf.D1(uv.X(), uv.Y(), pos, du, dv);
+            gp_Vec cross = du.Crossed(dv);
+            if(cross.SquareMagnitude() > gp::Resolution()) {
+                // The adaptor already works in global coordinates.
+                gp_Dir d(cross);
+                return Vector::From(d.X(), d.Y(), d.Z());
+            }
+        }
+        gp_Dir d = triangulation->Normal(n).Transformed(tr);
+        return Vector::From(d.X(), d.Y(), d.Z());
+    };
 
     // Face orientation: REVERSED means outward normal is opposite to surface parametric normal
     bool reversed = (face.Orientation() == TopAbs_REVERSED);
@@ -258,19 +281,9 @@ static void ProcessFace(const TopoDS_Face &face, SMesh &mesh, RgbaColor color,
         Vector v2 = Vector::From(p2.X(), p2.Y(), p2.Z());
         Vector v3 = Vector::From(p3.X(), p3.Y(), p3.Z());
 
-        // Get OCC-computed normals and transform them
-        // These are surface parametric normals, not face outward normals
-        gp_Dir norm1 = triangulation->Normal(n1);
-        gp_Dir norm2 = triangulation->Normal(n2);
-        gp_Dir norm3 = triangulation->Normal(n3);
-
-        norm1 = norm1.Transformed(tr);
-        norm2 = norm2.Transformed(tr);
-        norm3 = norm3.Transformed(tr);
-
-        Vector vn1 = Vector::From(norm1.X(), norm1.Y(), norm1.Z());
-        Vector vn2 = Vector::From(norm2.X(), norm2.Y(), norm2.Z());
-        Vector vn3 = Vector::From(norm3.X(), norm3.Y(), norm3.Z());
+        Vector vn1 = NormalAtNode(n1);
+        Vector vn2 = NormalAtNode(n2);
+        Vector vn3 = NormalAtNode(n3);
 
         STriangle tri = {};
 
