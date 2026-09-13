@@ -99,6 +99,7 @@ const SolveSpaceUI::SaveTable SolveSpaceUI::SAVED[] = {
     { 'g',  "Group.opB.v",              'x',    &(SS.sv.g.opB.v)              },
     { 'g',  "Group.valA",               'f',    &(SS.sv.g.valA)               },
     { 'g',  "Group.selectedEdges",      'E',    &(SS.sv.g.selectedEdges)      },
+    { 'g',  "Group.filletFaces",       'F',    &(SS.sv.g.filletFaces)        },
     { 'g',  "Group.valB",               'f',    &(SS.sv.g.valB)               },
     { 'g',  "Group.valC",               'f',    &(SS.sv.g.valC)               },
     { 'g',  "Group.color",              'c',    &(SS.sv.g.color)              },
@@ -218,6 +219,9 @@ const SolveSpaceUI::SaveTable SolveSpaceUI::SAVED[] = {
 struct SAVEDptr {
     EntityMap      &M() { return *((EntityMap *)this); }
     std::vector<uint32_t> &E() { return *((std::vector<uint32_t> *)this); }
+    std::vector<Group::FilletFace> &F() {
+        return *((std::vector<Group::FilletFace> *)this);
+    }
     std::string    &S() { return *((std::string *)this); }
     Platform::Path &P() { return *((Platform::Path *)this); }
     bool      &b() { return *((bool *)this); }
@@ -242,6 +246,7 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
         if(fmt == 'x' && p->x() == 0)             continue;
         if(fmt == 'i')                            continue;
         if(fmt == 'E' && p->E().empty())          continue;
+        if(fmt == 'F' && p->F().empty())          continue;
 
         fprintf(fh, "%s=", SAVED[i].desc);
         switch(fmt) {
@@ -278,12 +283,24 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
             }
 
             case 'E': {
-                // The edges a fillet or chamfer was told to work on, by their
-                // position in the solid's edge list. Without these the group
-                // reloads with an empty selection, which means every edge.
+                // Edges by their position in the solid's edge list; without
+                // them the group reloads as "every edge".
                 bool first = true;
                 for(uint32_t e : p->E()) {
                     fprintf(fh, "%s%u", first ? "" : " ", e);
+                    first = false;
+                }
+                break;
+            }
+
+            case 'F': {
+                // Faces as a point on each and its normal; the edges follow
+                // at generation time, so an edited sketch does not move them.
+                bool first = true;
+                for(const Group::FilletFace &f : p->F()) {
+                    fprintf(fh, "%s%.20f %.20f %.20f %.20f %.20f %.20f",
+                            first ? "" : " ",
+                            CO(f.point), CO(f.normal));
                     first = false;
                 }
                 break;
@@ -450,6 +467,26 @@ void SolveSpaceUI::LoadUsingTable(const Platform::Path &filename, char *key, cha
                         p->E().push_back((uint32_t)e);
                         at = end;
                         while(*at == ' ') at++;
+                    }
+                    break;
+                }
+
+                case 'F': {
+                    p->F().clear();
+                    const char *at = val;
+                    for(;;) {
+                        Group::FilletFace f = {};
+                        int got = sscanf(at, "%lf %lf %lf %lf %lf %lf",
+                                         &f.point.x, &f.point.y, &f.point.z,
+                                         &f.normal.x, &f.normal.y, &f.normal.z);
+                        if(got != 6) break;
+                        p->F().push_back(f);
+                        for(int k = 0; k < 6; k++) {
+                            while(*at == ' ') at++;
+                            while(*at && *at != ' ') at++;
+                        }
+                        while(*at == ' ') at++;
+                        if(!*at) break;
                     }
                     break;
                 }

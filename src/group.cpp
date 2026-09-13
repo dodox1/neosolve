@@ -84,6 +84,26 @@ void Group::ExtrusionForceVectorTo(const Vector &v) {
     SK.GetParam(h.param(2))->val = v.z;
 }
 
+// A face is kept as a point on it and its normal; an edge has only its
+// position in the edge list to go on.
+static bool CaptureSelection(Group *prevg, Group *g) {
+    std::vector<uint32_t> faceIndices;
+    prevg->runningSolidModel->FindSelectedFaces(&SS.GW.selection, &faceIndices);
+    for(uint32_t index : faceIndices) {
+        auto it = prevg->runningSolidModel->faces.find(index);
+        if(it == prevg->runningSolidModel->faces.end()) continue;
+        Group::FilletFace ff = { it->second.point, it->second.normal };
+        g->filletFaces.push_back(ff);
+    }
+
+    if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
+                                                    &g->selectedEdges)) {
+        // Nothing matched an edge; a face still counts as a selection.
+        return !g->filletFaces.empty();
+    }
+    return true;
+}
+
 void Group::MenuGroup(Command id)  {
     MenuGroup(id, Platform::Path());
 }
@@ -342,11 +362,10 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             // Capture selected edges from the current selection. An empty list
             // means every edge, so a selection we could not match to any edge
             // has to stop here instead of rounding the whole solid.
-            if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
-                                                            &g.selectedEdges)) {
-                Error(_("None of the selected items is an edge of the solid. "
-                        "Select the edges to round, or select nothing to round "
-                        "every edge. Curved edges cannot be selected yet."));
+            if(!CaptureSelection(prevg, &g)) {
+                Error(_("None of the selected items is an edge or a face of "
+                        "the solid. Select what to round, or select nothing "
+                        "to round every edge."));
                 return;
             }
             break;
@@ -364,11 +383,10 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             g.name = C_("group-name", "chamfer");
             // Capture selected edges from the current selection; see the fillet
             // case above for why an unmatched selection cannot be ignored.
-            if(!prevg->runningSolidModel->FindSelectedEdges(&SS.GW.selection,
-                                                            &g.selectedEdges)) {
-                Error(_("None of the selected items is an edge of the solid. "
-                        "Select the edges to bevel, or select nothing to bevel "
-                        "every edge. Curved edges cannot be selected yet."));
+            if(!CaptureSelection(prevg, &g)) {
+                Error(_("None of the selected items is an edge or a face of "
+                        "the solid. Select what to bevel, or select nothing "
+                        "to bevel every edge."));
                 return;
             }
             break;

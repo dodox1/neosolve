@@ -280,6 +280,13 @@ public:
 
     // For fillet/chamfer operations: indices of selected edges
     std::vector<uint32_t> selectedEdges;
+    // A face the fillet or chamfer was given, as a point on it and its
+    // normal; its edges are worked out again on every regeneration.
+    struct FilletFace {
+        Vector point;
+        Vector normal;
+    };
+    std::vector<FilletFace> filletFaces;
     double filletRadius = 1.0;  // mm
 
     // For shell operations: indices of selected faces to remove

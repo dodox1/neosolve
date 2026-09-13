@@ -607,6 +607,53 @@ void SolidModelOcc::ExportSTL(const Platform::Path &path) const {
 }
 
 
+
+// The edges of the face whose point and normal match. Geometry, not position,
+// so that editing the sketch does not move the operation to another face.
+bool SolidModelOcc::EdgesOfFace(Vector point, Vector normal,
+                                std::vector<uint32_t> *outEdges) const {
+    if(shapeAcc.IsNull()) return false;
+
+    uint32_t bestIndex = NO_EDGE;
+    double bestDist = VERY_POSITIVE;
+    for(const auto &kv : faces) {
+        const FaceInfo &info = kv.second;
+        if(info.normal.Dot(normal) < 0.99) continue;
+        double d = info.point.Minus(point).Magnitude();
+        if(d < bestDist) {
+            bestDist = d;
+            bestIndex = kv.first;
+        }
+    }
+    if(bestIndex == NO_EDGE) return false;
+
+    uint32_t faceIndex = 0;
+    std::list<TopoDS_Shape> seen;
+    for(TopExp_Explorer fx(shapeAcc, TopAbs_FACE); fx.More(); fx.Next()) {
+        bool dup = false;
+        for(const auto &f : seen) {
+            if(f.IsSame(fx.Current())) { dup = true; break; }
+        }
+        if(dup) continue;
+        seen.push_back(fx.Current());
+
+        if(faceIndex == bestIndex) {
+            for(TopExp_Explorer ex(fx.Current(), TopAbs_EDGE); ex.More(); ex.Next()) {
+                uint32_t index = EdgeIndexOf(TopoDS::Edge(ex.Current()));
+                if(index == NO_EDGE) continue;
+                if(std::find(outEdges->begin(), outEdges->end(), index) ==
+                   outEdges->end())
+                {
+                    outEdges->push_back(index);
+                }
+            }
+            return true;
+        }
+        faceIndex++;
+    }
+    return false;
+}
+
 // Where an edge sits in the numbering the fillet and chamfer paths use, which
 // is the order TopExp_Explorer walks them in, with repeats skipped.
 uint32_t SolidModelOcc::EdgeIndexOf(const TopoDS_Edge &edge) const {
@@ -654,42 +701,10 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
         }
     }
 
-    // A selected face stands for all of its edges, which is the only way to
-    // reach a circular one: matching works on line segments, and a circle is
-    // not one.
-    std::vector<uint32_t> faceIndices;
-    FindSelectedFaces(selection, &faceIndices);
-    for(uint32_t wanted : faceIndices) {
-        uint32_t faceIndex = 0;
-        std::list<TopoDS_Shape> seenFaces;
-        for(TopExp_Explorer fx(shapeAcc, TopAbs_FACE); fx.More(); fx.Next()) {
-            bool seen = false;
-            for(const auto &f : seenFaces) {
-                if(f.IsSame(fx.Current())) { seen = true; break; }
-            }
-            if(seen) continue;
-            seenFaces.push_back(fx.Current());
-
-            if(faceIndex == wanted) {
-                for(TopExp_Explorer ex(fx.Current(), TopAbs_EDGE); ex.More(); ex.Next()) {
-                    uint32_t index = EdgeIndexOf(TopoDS::Edge(ex.Current()));
-                    if(index == NO_EDGE) continue;
-                    if(std::find(outEdges->begin(), outEdges->end(), index) ==
-                       outEdges->end())
-                    {
-                        outEdges->push_back(index);
-                    }
-                }
-                break;
-            }
-            faceIndex++;
-        }
-    }
-
     // Nothing selected at all is a request to take every edge; a selection we
     // could make nothing of is not, and has to be reported rather than treated
     // as one.
-    if(selectedLines.empty()) return selectedEntities == 0 || !outEdges->empty();
+    if(selectedLines.empty()) return selectedEntities == 0;
 
     // Match selected lines against OCC edges
     double tol = 1e-3;  // 1 micron tolerance

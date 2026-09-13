@@ -945,6 +945,14 @@ void Group::GenerateShellAndMesh() {
         Group *prev = RunningMeshGroup();
         if(prev && prev->runningSolidModel && !prev->runningSolidModel->IsEmpty()) {
             try {
+                // A face stands for its edges, worked out afresh from the
+                // point and normal recorded when it was picked.
+                std::vector<uint32_t> selectedEdges = this->selectedEdges;
+                for(const FilletFace &ff : filletFaces) {
+                    prev->runningSolidModel->EdgesOfFace(ff.point, ff.normal,
+                                                         &selectedEdges);
+                }
+
                 BRepFilletAPI_MakeFillet fillet(prev->runningSolidModel->shapeAcc);
                 double radius = (valA > 0) ? valA : 1.0;
 
@@ -1021,6 +1029,12 @@ void Group::GenerateShellAndMesh() {
         Group *prev = RunningMeshGroup();
         if(prev && prev->runningSolidModel && !prev->runningSolidModel->IsEmpty()) {
             try {
+                std::vector<uint32_t> selectedEdges = this->selectedEdges;
+                for(const FilletFace &ff : filletFaces) {
+                    prev->runningSolidModel->EdgesOfFace(ff.point, ff.normal,
+                                                         &selectedEdges);
+                }
+
                 BRepFilletAPI_MakeChamfer chamfer(prev->runningSolidModel->shapeAcc);
                 double dist = (valA > 0) ? valA : 1.0;
 
