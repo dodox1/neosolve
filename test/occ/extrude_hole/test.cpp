@@ -64,4 +64,43 @@ TEST_CASE(hole_is_subtracted) {
     CHECK_TRUE(fabs(props.Mass() - VOLUME) <= 1.0);
 }
 
+// The same fixture, used for what gets drawn rather than what gets built. Its
+// outer profile is a rounded rectangle, so it has both real edges and tangent
+// joints between the flats and the corners.
+//
+// Two ways to get this wrong, and both were shipped. Outlines added with
+// placeholder normals and no tag are thrown away by everything downstream:
+// the 2D exports drop them and the graphics window draws none of them, so an
+// OCC solid showed no edges of its own at all. Then, once they are classified,
+// normals averaged per face make the facet boundaries of every rounded corner
+// read as sharp, which is what the display looks like with the solid's own
+// entities hidden.
+TEST_CASE(solid_outlines_are_classified) {
+    CHECK_LOAD("normal.slvs");
+
+    Group *g = LastSolidGroup();
+    CHECK_TRUE(g != nullptr);
+    if(!g) return;
+
+    g->GenerateDisplayItems();
+
+    int total = 0, tagged = 0, tangent = 0;
+    for(const SOutline &o : g->displayOutlines.l) {
+        total++;
+        if(o.tag == 0) continue;
+        tagged++;
+        // Faces this close to parallel meet smoothly; an edge between them is
+        // a seam in the tessellation, not something to draw.
+        if(o.nl.Dot(o.nr) > 0.95) tangent++;
+    }
+
+    if(total == 0 || tagged == 0 || tangent != 0) {
+        dbp("OCC outlines: %d total, %d tagged, %d near-tangent",
+            total, tagged, tangent);
+    }
+    CHECK_TRUE(total > 0);
+    CHECK_TRUE(tagged > 0);
+    CHECK_TRUE(tangent == 0);
+}
+
 #endif // HAVE_OPENCASCADE
