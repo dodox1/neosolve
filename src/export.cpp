@@ -531,8 +531,16 @@ void SolveSpaceUI::ExportLinesAndMesh(SEdgeList *sel, SBezierList *sbl, SMesh *s
 
                 // split segment
                 if(ta < 0.0 - eps && tb > 1.0 + eps) {
-                    sel->AddEdge(sei->b, *pBj, sej->auxA, sej->auxB);
-                    *pBj = sei->a;
+                    // Take the values first: AddEdge can grow the list, and
+                    // sei, sej, pAj and pBj all point into it.
+                    Vector pieceA = sei->b, pieceB = *pBj, cutTo = sei->a;
+                    bool bIsFar = (pBj == &sej->b);
+                    sel->AddEdge(pieceA, pieceB, sej->auxA, sej->auxB);
+                    sei = &sel->l[i];
+                    sej = &sel->l[j];
+                    pAj = bIsFar ? &sej->a : &sej->b;
+                    pBj = bIsFar ? &sej->b : &sej->a;
+                    *pBj = cutTo;
                     continue;
                 }
             }
@@ -562,8 +570,10 @@ void SolveSpaceUI::ExportLinesAndMesh(SEdgeList *sel, SBezierList *sbl, SMesh *s
 
                 // split segment
                 if(ta > 0.0 + eps && tb < 1.0 - eps) {
-                    sel->AddEdge(*pBj, sei->b, sei->auxA, sei->auxB);
-                    sei->b = *pAj;
+                    Vector pieceA = *pBj, pieceB = sei->b, cutTo = *pAj;
+                    sel->AddEdge(pieceA, pieceB, sei->auxA, sei->auxB);
+                    sei = &sel->l[i];
+                    sei->b = cutTo;
                     i--;
                     break;
                 }
