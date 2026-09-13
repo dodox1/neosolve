@@ -98,6 +98,7 @@ const SolveSpaceUI::SaveTable SolveSpaceUI::SAVED[] = {
     { 'g',  "Group.opA.v",              'x',    &(SS.sv.g.opA.v)              },
     { 'g',  "Group.opB.v",              'x',    &(SS.sv.g.opB.v)              },
     { 'g',  "Group.valA",               'f',    &(SS.sv.g.valA)               },
+    { 'g',  "Group.selectedEdges",      'E',    &(SS.sv.g.selectedEdges)      },
     { 'g',  "Group.valB",               'f',    &(SS.sv.g.valB)               },
     { 'g',  "Group.valC",               'f',    &(SS.sv.g.valC)               },
     { 'g',  "Group.color",              'c',    &(SS.sv.g.color)              },
@@ -216,6 +217,7 @@ const SolveSpaceUI::SaveTable SolveSpaceUI::SAVED[] = {
 
 struct SAVEDptr {
     EntityMap      &M() { return *((EntityMap *)this); }
+    std::vector<uint32_t> &E() { return *((std::vector<uint32_t> *)this); }
     std::string    &S() { return *((std::string *)this); }
     Platform::Path &P() { return *((Platform::Path *)this); }
     bool      &b() { return *((bool *)this); }
@@ -239,6 +241,7 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
         if(fmt == 'f' && EXACT(p->f() == 0.0))    continue;
         if(fmt == 'x' && p->x() == 0)             continue;
         if(fmt == 'i')                            continue;
+        if(fmt == 'E' && p->E().empty())          continue;
 
         fprintf(fh, "%s=", SAVED[i].desc);
         switch(fmt) {
@@ -271,6 +274,18 @@ void SolveSpaceUI::SaveUsingTable(const Platform::Path &filename, int type) {
                             it.second.v, it.first.input.v, it.first.copyNumber);
                 }
                 fprintf(fh, "}");
+                break;
+            }
+
+            case 'E': {
+                // The edges a fillet or chamfer was told to work on, by their
+                // position in the solid's edge list. Without these the group
+                // reloads with an empty selection, which means every edge.
+                bool first = true;
+                for(uint32_t e : p->E()) {
+                    fprintf(fh, "%s%u", first ? "" : " ", e);
+                    first = false;
+                }
                 break;
             }
 
@@ -425,6 +440,20 @@ void SolveSpaceUI::LoadUsingTable(const Platform::Path &filename, char *key, cha
             switch(SAVED[i].fmt) {
                 case 'S': p->S() = val;                     break;
                 case 'b': p->b() = (atoi(val) != 0);        break;
+                case 'E': {
+                    p->E().clear();
+                    const char *at = val;
+                    while(*at) {
+                        char *end;
+                        unsigned long e = strtoul(at, &end, 10);
+                        if(end == at) break;
+                        p->E().push_back((uint32_t)e);
+                        at = end;
+                        while(*at == ' ') at++;
+                    }
+                    break;
+                }
+
                 case 'd': p->d() = atoi(val);               break;
                 case 'f': p->f() = atof(val);               break;
                 case 'x': sscanf(val, "%x", &u); p->x()= u; break;
