@@ -7,6 +7,7 @@
 // Copyright 2008-2013 Jonathan Westhues.
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
+#include <vector>
 #include "config.h"
 
 namespace SolveSpace {
@@ -311,6 +312,92 @@ void SolveSpaceUI::ExportWireframeCurves(SEdgeList *sel, SBezierList *sbl,
     sblss.Clear();
 }
 
+
+//-----------------------------------------------------------------------------
+// A solid's edges reach the export from two directions: the entities, which
+// carry the exact geometry, and the display mesh, as sharp edges and as
+// silhouettes. With the native kernel the two land on each other and get
+// merged. An OpenCASCADE mesh is tessellated on its own, so they miss by up to
+// the chord tolerance and both are written -- every contour twice, which a
+// laser then cuts twice.
+//
+// Drop a loop that the mesh contributed where an exact one already describes
+// it. Whole loops only: trimming and splitting is what the overlap pass above
+// does, and widening its tolerance makes it quadratic beyond use.
+//-----------------------------------------------------------------------------
+static bool LoopIsFromMesh(const SBezierLoop *sbl) {
+    for(const SBezier &sb : sbl->l) {
+        if(sb.auxA != Style::SOLID_EDGE && sb.auxA != Style::OUTLINE) return false;
+    }
+    return sbl->l.n > 0;
+}
+
+static void LoopPoints(const SBezierLoop *sbl, std::vector<Vector> *out) {
+    for(const SBezier &sb : sbl->l) {
+        out->push_back(sb.ctrl[0]);
+        out->push_back(sb.ctrl[sb.deg]);
+        out->push_back(sb.PointAt(0.5));
+    }
+}
+
+static double PointToSegment(Vector p, Vector a, Vector b) {
+    Vector ab = b.Minus(a);
+    double len2 = ab.MagSquared();
+    if(len2 < LENGTH_EPS * LENGTH_EPS) return p.Minus(a).Magnitude();
+    double t = max(0.0, min(1.0, p.Minus(a).Dot(ab) / len2));
+    return p.Minus(a.Plus(ab.ScaledBy(t))).Magnitude();
+}
+
+static bool LoopCoversPoints(const SBezierLoop *sbl,
+                             const std::vector<Vector> &pts, double tol) {
+    for(Vector p : pts) {
+        bool near = false;
+        for(const SBezier &sb : sbl->l) {
+            if(PointToSegment(p, sb.ctrl[0], sb.ctrl[sb.deg]) <= tol) {
+                near = true;
+                break;
+            }
+        }
+        if(!near) return false;
+    }
+    return true;
+}
+
+static void RemoveDuplicatedMeshLoops(SBezierLoopSetSet *sblss, double tol) {
+    std::vector<std::pair<SBezierLoopSet *, SBezierLoop *>> loops;
+    for(SBezierLoopSet &sbls : sblss->l) {
+        for(SBezierLoop &sbl : sbls.l) {
+            sbl.tag = 0;
+            loops.push_back({ &sbls, &sbl });
+        }
+    }
+
+    for(auto &it : loops) {
+        SBezierLoop *sbl = it.second;
+        if(!LoopIsFromMesh(sbl)) continue;
+
+        std::vector<Vector> pts;
+        LoopPoints(sbl, &pts);
+        if(pts.empty()) continue;
+
+        for(auto &other : loops) {
+            if(other.second == sbl || other.second->tag != 0) continue;
+            if(LoopIsFromMesh(other.second)) continue;
+            if(LoopCoversPoints(other.second, pts, tol)) {
+                sbl->tag = 1;
+                break;
+            }
+        }
+    }
+
+    for(SBezierLoopSet &sbls : sblss->l) {
+        for(SBezierLoop &sbl : sbls.l) {
+            if(sbl.tag != 0) sbl.Clear();
+        }
+        sbls.l.RemoveTagged();
+    }
+}
+
 void SolveSpaceUI::ExportLinesAndMesh(SEdgeList *sel, SBezierList *sbl, SMesh *sm,
                                       Vector u, Vector v, Vector n,
                                       Vector origin, double cameraTan,
@@ -604,6 +691,8 @@ void SolveSpaceUI::ExportLinesAndMesh(SEdgeList *sel, SBezierList *sbl, SMesh *s
                              NULL, NULL,
                              &leftovers);
     sblss.l.Add(&leftovers);
+
+    RemoveDuplicatedMeshLoops(&sblss, SS.ExportChordTolMm() * s);
 
     // Now write the lines and triangles to the output file
     out->OutputLinesAndMesh(&sblss, &sms);
