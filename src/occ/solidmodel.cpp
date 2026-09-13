@@ -40,6 +40,7 @@
 #include <BRepAdaptor_Surface.hxx>
 #include <gp.hxx>
 #include <list>
+#include <algorithm>
 
 namespace SolveSpace {
 
@@ -605,6 +606,25 @@ void SolidModelOcc::ExportSTL(const Platform::Path &path) const {
     dbp("STL export not yet implemented for OCC solid models");
 }
 
+
+// Where an edge sits in the numbering the fillet and chamfer paths use, which
+// is the order TopExp_Explorer walks them in, with repeats skipped.
+uint32_t SolidModelOcc::EdgeIndexOf(const TopoDS_Edge &edge) const {
+    uint32_t index = 0;
+    std::list<TopoDS_Shape> seen;
+    for(TopExp_Explorer ex(shapeAcc, TopAbs_EDGE); ex.More(); ex.Next()) {
+        bool dup = false;
+        for(const auto &sh : seen) {
+            if(sh.IsSame(ex.Current())) { dup = true; break; }
+        }
+        if(dup) continue;
+        seen.push_back(ex.Current());
+        if(ex.Current().IsSame(edge)) return index;
+        index++;
+    }
+    return NO_EDGE;
+}
+
 // Template implementation for finding selected edges
 template<typename SelectionList>
 bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
@@ -634,10 +654,42 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
         }
     }
 
+    // A selected face stands for all of its edges, which is the only way to
+    // reach a circular one: matching works on line segments, and a circle is
+    // not one.
+    std::vector<uint32_t> faceIndices;
+    FindSelectedFaces(selection, &faceIndices);
+    for(uint32_t wanted : faceIndices) {
+        uint32_t faceIndex = 0;
+        std::list<TopoDS_Shape> seenFaces;
+        for(TopExp_Explorer fx(shapeAcc, TopAbs_FACE); fx.More(); fx.Next()) {
+            bool seen = false;
+            for(const auto &f : seenFaces) {
+                if(f.IsSame(fx.Current())) { seen = true; break; }
+            }
+            if(seen) continue;
+            seenFaces.push_back(fx.Current());
+
+            if(faceIndex == wanted) {
+                for(TopExp_Explorer ex(fx.Current(), TopAbs_EDGE); ex.More(); ex.Next()) {
+                    uint32_t index = EdgeIndexOf(TopoDS::Edge(ex.Current()));
+                    if(index == NO_EDGE) continue;
+                    if(std::find(outEdges->begin(), outEdges->end(), index) ==
+                       outEdges->end())
+                    {
+                        outEdges->push_back(index);
+                    }
+                }
+                break;
+            }
+            faceIndex++;
+        }
+    }
+
     // Nothing selected at all is a request to take every edge; a selection we
     // could make nothing of is not, and has to be reported rather than treated
     // as one.
-    if(selectedLines.empty()) return selectedEntities == 0;
+    if(selectedLines.empty()) return selectedEntities == 0 || !outEdges->empty();
 
     // Match selected lines against OCC edges
     double tol = 1e-3;  // 1 micron tolerance

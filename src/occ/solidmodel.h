@@ -67,6 +67,9 @@ public:
     std::map<uint32_t, EdgeInfo> edges;
 
     // Face information for selection (sketch on face, constraints)
+    static const uint32_t NO_EDGE = 0xffffffff;
+    uint32_t EdgeIndexOf(const TopoDS_Edge &edge) const;
+
     struct FaceInfo {
         uint32_t entityHandle;  // SolveSpace entity handle for this face
         Vector point;           // A point on the face (center)
