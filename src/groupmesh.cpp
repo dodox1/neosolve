@@ -1727,17 +1727,7 @@ void Group::GenerateDisplayItems() {
                     }
                 }
 
-                if(!handledImportSolid && runningSolidModel && !runningSolidModel->IsEmpty()) {
-                    // Use OCC edges if available
-                    SEdgeList el = {};
-                    runningSolidModel->MakeEdgesInto(&el);
-                    // Convert edges to outlines with dummy normals
-                    Vector dummy = Vector::From(0, 0, 1);
-                    for(SEdge *e = el.l.First(); e; e = el.l.NextAfter(e)) {
-                        rawOutlines.AddEdge(e->a, e->b, dummy, dummy);
-                    }
-                    el.Clear();
-                } else if(!handledImportSolid)
+                if(!handledImportSolid)
 #endif
                 {
                     if(!runningMesh.l.IsEmpty()) {
