@@ -1005,7 +1005,11 @@ void Group::GenerateShellAndMesh() {
                     if(fillet.IsDone()) {
                         thisSolidModel->shape = fillet.Shape();
                     } else {
-                        dbp("Fillet operation failed");
+                        dbp("OCC could not round %d of %d edges at radius "
+                            "%g mm. Rounding only some of a solid's edges can "
+                            "fail where a rounded edge meets one that is not; "
+                            "rounding all of them, or a smaller radius, may "
+                            "work.", addedCount, edgeIdx, radius);
                     }
                 }
             } catch(const Standard_Failure &e) {
@@ -1077,7 +1081,11 @@ void Group::GenerateShellAndMesh() {
                     if(chamfer.IsDone()) {
                         thisSolidModel->shape = chamfer.Shape();
                     } else {
-                        dbp("Chamfer operation failed");
+                        dbp("OCC could not bevel %d of %d edges at %g mm. "
+                            "Beveling only some of a solid's edges can fail "
+                            "where a beveled edge meets one that is not; "
+                            "beveling all of them, or a smaller distance, may "
+                            "work.", addedCount, edgeIdx, dist);
                     }
                 }
             } catch(const Standard_Failure &e) {
