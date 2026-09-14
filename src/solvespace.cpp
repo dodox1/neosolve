@@ -1111,16 +1111,23 @@ void SolveSpaceUI::MenuHelp(Command id) {
 
         case Command::ABOUT:
             Message(_(
-"This is SolveSpace version %s (%s).\n"
+"This is neosolve version %s (%s), a fork of SolveSpace.\n"
 "\n"
-"For more information, see http://solvespace.com/\n"
+"For more information, see https://github.com/0xSeren/neosolve\n"
+"SolveSpace itself is at http://solvespace.com/\n"
 "\n"
-"SolveSpace is free software: you are free to modify\n"
+"neosolve is free software: you are free to modify\n"
 "and/or redistribute it under the terms of the GNU\n"
 "General Public License (GPL) version 3 or later.\n"
 "\n"
 "There is NO WARRANTY, to the extent permitted by\n"
 "law. For details, visit http://gnu.org/licenses/\n"
+#ifdef HAVE_OPENCASCADE
+"\n"
+"This build uses Open CASCADE Technology, covered by\n"
+"the GNU Lesser General Public License version 2.1\n"
+"with the Open CASCADE exception.\n"
+#endif
 "\n"
 "© 2008-%d Jonathan Westhues and other authors.\n"),
 PACKAGE_VERSION, GUI_TOOLKIT, 2026);
