@@ -249,6 +249,10 @@ static void ProcessFace(const TopoDS_Face &face, SMesh &mesh, RgbaColor color,
     gp_Trsf tr = loc.Transformation();
 
     auto NormalAtNode = [&](int n) {
+        // What Poly::ComputeNormals left: an average of the facets around the
+        // node, so its direction is coarse but its sign follows the winding and
+        // can be trusted.
+        gp_Dir fromFacets = triangulation->Normal(n).Transformed(tr);
         if(fromSurface) {
             gp_Pnt2d uv = triangulation->UVNode(n);
             gp_Pnt pos;
@@ -256,13 +260,16 @@ static void ProcessFace(const TopoDS_Face &face, SMesh &mesh, RgbaColor color,
             surf.D1(uv.X(), uv.Y(), pos, du, dv);
             gp_Vec cross = du.Crossed(dv);
             if(cross.SquareMagnitude() > gp::Resolution()) {
-                // The adaptor already works in global coordinates.
+                // The adaptor already works in global coordinates. At a pole of
+                // a revolution one derivative is rounding error and the cross
+                // product comes out either way round, so take the sign from the
+                // facets. FreeCAD does the same in Part::Tools::getPointNormals.
                 gp_Dir d(cross);
+                if(d.Dot(fromFacets) < 0) d.Reverse();
                 return Vector::From(d.X(), d.Y(), d.Z());
             }
         }
-        gp_Dir d = triangulation->Normal(n).Transformed(tr);
-        return Vector::From(d.X(), d.Y(), d.Z());
+        return Vector::From(fromFacets.X(), fromFacets.Y(), fromFacets.Z());
     };
 
     // Face orientation: REVERSED means outward normal is opposite to surface parametric normal
