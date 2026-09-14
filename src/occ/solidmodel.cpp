@@ -293,6 +293,10 @@ static void ProcessFace(const TopoDS_Face &face, SMesh &mesh, RgbaColor color,
             tri.cn = vn3;
         }
 
+        // OCC's mesher leaves the occasional triangle with two vertices in the
+        // same place, and one of those has no normal for the outline pass.
+        if(tri.a.Equals(tri.b) || tri.b.Equals(tri.c) || tri.c.Equals(tri.a)) continue;
+
         tri.meta.face = faceEntityHandle;  // Set face entity for selection
         tri.meta.color = color;
         mesh.AddTriangle(&tri);
