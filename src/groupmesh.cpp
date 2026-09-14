@@ -1116,37 +1116,147 @@ void Group::GenerateShellAndMesh() {
            srcA->polyError.how == PolyError::GOOD &&
            srcB->polyError.how == PolyError::GOOD) {
 
-            try {
-                // Create ThruSections builder
-                // isSolid=true creates a solid, isSolid=false creates a shell
-                // ruled=false creates smooth surface, ruled=true creates ruled surface
-                BRepOffsetAPI_ThruSections loftBuilder(Standard_True, Standard_False);
+            // A contour that can be lofted: its outer wire and the wire of each
+            // hole in it. One sketch can hold several.
+            struct LoftProfile {
+                TopoDS_Wire outer;
+                std::vector<TopoDS_Wire> holes;
+            };
 
-                // Get first profile
-                SBezierLoopSetSet *sblssA = &(srcA->bezierLoops);
-                for(SBezierLoopSet *sbls = sblssA->l.First(); sbls; sbls = sblssA->l.NextAfter(sbls)) {
+            auto ProfilesOf = [](Group *g, std::vector<LoftProfile> *profiles) {
+                SBezierLoopSetSet *sblss = &(g->bezierLoops);
+                for(SBezierLoopSet *sbls = sblss->l.First(); sbls;
+                    sbls = sblss->l.NextAfter(sbls))
+                {
                     FaceBuilder fb = FaceBuilder::FromBezierLoopSet(sbls);
-                    if(fb.IsValid()) {
-                        loftBuilder.AddWire(fb.GetOuterWire());
-                        break;  // Only use first loop for now
+                    if(!fb.IsValid() || fb.GetOuterWire().IsNull()) continue;
+                    LoftProfile p;
+                    p.outer = fb.GetOuterWire();
+                    for(const TopoDS_Wire &w : fb.GetWires()) {
+                        if(!w.IsSame(p.outer)) p.holes.push_back(w);
+                    }
+                    profiles->push_back(p);
+                }
+            };
+
+            auto CentreOf = [](const TopoDS_Wire &w) {
+                GProp_GProps props;
+                BRepGProp::LinearProperties(w, props);
+                return props.CentreOfMass();
+            };
+
+            // The loops of the two sketches need not come out in the same order,
+            // so pair them by how close their centres are.
+            auto NearestFree = [](const gp_Pnt &c, const std::vector<gp_Pnt> &cs,
+                                  std::vector<bool> *taken) -> size_t {
+                size_t best = cs.size();
+                double bestDist = 0.0;
+                for(size_t j = 0; j < cs.size(); j++) {
+                    if((*taken)[j]) continue;
+                    double d = c.Distance(cs[j]);
+                    if(best == cs.size() || d < bestDist) {
+                        best = j;
+                        bestDist = d;
+                    }
+                }
+                if(best < cs.size()) (*taken)[best] = true;
+                return best;
+            };
+
+            auto LoftBetween = [](const TopoDS_Wire &a, const TopoDS_Wire &b,
+                                  TopoDS_Shape *shape) -> bool {
+                // isSolid=true makes a solid rather than a shell; ruled=false
+                // makes the transition smooth rather than straight.
+                BRepOffsetAPI_ThruSections builder(Standard_True, Standard_False);
+                builder.AddWire(a);
+                builder.AddWire(b);
+                builder.Build();
+                if(!builder.IsDone()) return false;
+                *shape = builder.Shape();
+                return true;
+            };
+
+            std::vector<LoftProfile> profA, profB;
+            ProfilesOf(srcA, &profA);
+            ProfilesOf(srcB, &profB);
+
+            // ThruSections dereferences a null curve and segfaults when it is
+            // built with fewer than two sections, so don't even try.
+            if(profA.empty() || profB.empty()) {
+                dbp("OCC loft: need two usable profiles");
+            } else try {
+                if(profA.size() != profB.size()) {
+                    dbp("OCC loft: the sketches hold %d and %d contours, so only the "
+                        "%d nearest pairs are lofted",
+                        (int)profA.size(), (int)profB.size(),
+                        (int)std::min(profA.size(), profB.size()));
+                }
+
+                std::vector<gp_Pnt> centresB;
+                for(const LoftProfile &p : profB) centresB.push_back(CentreOf(p.outer));
+                std::vector<bool> takenB(profB.size(), false);
+
+                TopoDS_Shape shape;
+                bool haveShape = false;
+                for(const LoftProfile &a : profA) {
+                    size_t bi = NearestFree(CentreOf(a.outer), centresB, &takenB);
+                    if(bi >= profB.size()) continue;
+                    const LoftProfile &b = profB[bi];
+
+                    TopoDS_Shape solid;
+                    if(!LoftBetween(a.outer, b.outer, &solid)) {
+                        dbp("OCC loft: OCC could not loft between two contours");
+                        continue;
+                    }
+
+                    // ThruSections reads every wire it is given as one more section
+                    // along the loft, so a hole cannot be handed to it. Loft the
+                    // holes into solids of their own and cut those out instead.
+                    if(a.holes.size() != b.holes.size()) {
+                        dbp("OCC loft: the paired contours have %d and %d holes, so "
+                            "only the %d nearest pairs of holes are lofted",
+                            (int)a.holes.size(), (int)b.holes.size(),
+                            (int)std::min(a.holes.size(), b.holes.size()));
+                    }
+
+                    std::vector<gp_Pnt> holeCentresB;
+                    for(const TopoDS_Wire &w : b.holes) {
+                        holeCentresB.push_back(CentreOf(w));
+                    }
+                    std::vector<bool> takenHoles(b.holes.size(), false);
+
+                    for(size_t i = 0; i < a.holes.size(); i++) {
+                        size_t hi = NearestFree(CentreOf(a.holes[i]), holeCentresB,
+                                                &takenHoles);
+                        if(hi >= b.holes.size()) continue;
+
+                        TopoDS_Shape hole;
+                        if(!LoftBetween(a.holes[i], b.holes[hi], &hole)) {
+                            dbp("OCC loft: OCC could not loft hole %d", (int)i);
+                            continue;
+                        }
+                        BRepAlgoAPI_Cut cut(solid, hole);
+                        if(cut.IsDone()) {
+                            solid = cut.Shape();
+                        } else {
+                            dbp("OCC loft: OCC could not cut hole %d", (int)i);
+                        }
+                    }
+
+                    if(!haveShape) {
+                        shape = solid;
+                        haveShape = true;
+                    } else {
+                        BRepAlgoAPI_Fuse fuse(shape, solid);
+                        if(fuse.IsDone()) {
+                            shape = fuse.Shape();
+                        } else {
+                            dbp("OCC loft: OCC could not fuse the lofted contours");
+                        }
                     }
                 }
 
-                // Get second profile
-                SBezierLoopSetSet *sblssB = &(srcB->bezierLoops);
-                for(SBezierLoopSet *sbls = sblssB->l.First(); sbls; sbls = sblssB->l.NextAfter(sbls)) {
-                    FaceBuilder fb = FaceBuilder::FromBezierLoopSet(sbls);
-                    if(fb.IsValid()) {
-                        loftBuilder.AddWire(fb.GetOuterWire());
-                        break;  // Only use first loop for now
-                    }
-                }
-
-                loftBuilder.Build();
-
-                if(loftBuilder.IsDone()) {
-                    thisSolidModel->shape = loftBuilder.Shape();
-                }
+                if(haveShape) thisSolidModel->shape = shape;
             } catch(const Standard_Failure &e) {
                 dbp("OCC loft failed: %s", e.GetMessageString());
             }
