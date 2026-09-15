@@ -35,7 +35,7 @@ jobs:
             -exec strip --strip-unneeded {} + 2>/dev/null || true
           tar -czf neosolve-linux-x64.tar.gz -C appdir .
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux
           path: build/neosolve-linux-x64.tar.gz
@@ -62,7 +62,7 @@ jobs:
           echo "Packaging $(ls *.dll | wc -l) DLLs"
           7z a -tzip neosolve-windows-x64.zip solvespace.exe *.dll
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows
           path: build/bin/RelWithDebInfo/neosolve-windows-x64.zip
@@ -96,7 +96,7 @@ jobs:
       run: |
         hdiutil create -volname NeoSolve -srcfolder build-arm64/bin/SolveSpace.app -ov -format UDZO NeoSolve.dmg
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: macos
         path: NeoSolve.dmg
@@ -108,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download All Workflow Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
     - name: Get Release Upload URL
       id: get_upload_url
       env:
