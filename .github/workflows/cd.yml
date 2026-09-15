@@ -14,7 +14,7 @@ jobs:
     name: Build Release Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Dependencies
         run: .github/scripts/install-ubuntu.sh
       - name: Build
@@ -44,7 +44,7 @@ jobs:
     name: Build Release Windows
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Dependencies
         run: .github/scripts/install-windows.sh
         shell: bash
@@ -71,7 +71,7 @@ jobs:
     name: Build Release macOS
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Install Dependencies
       run: .github/scripts/install-macos.sh ci
     - name: Build
