@@ -893,6 +893,12 @@ bool SolveSpaceUI::LoadEntitiesFromSlvs(const Platform::Path &filename, EntityLi
                 &(srf.degm), &(srf.degn)) != 5) {
                 ssassert(false, "Unexpected Surface format");
             }
+            if(srf.degm < 0 || srf.degm > 3 || srf.degn < 0 || srf.degn > 3) {
+                dbp("Linked file '%s': surface degree out of range, not loading it.",
+                    filename.raw.c_str());
+                fclose(fh);
+                return false;
+            }
             srf.color = RgbaColor::FromPackedInt((uint32_t)rgba);
         } else if(StrStartsWith(line, "SCtrl ")) {
             int i, j;
@@ -902,6 +908,14 @@ bool SolveSpaceUI::LoadEntitiesFromSlvs(const Platform::Path &filename, EntityLi
                                 &i, &j, &(c.x), &(c.y), &(c.z), &w) != 6)
             {
                 ssassert(false, "Unexpected SCtrl format");
+            }
+            // These index fixed-size arrays, and a linked file is only as
+            // trustworthy as whoever sent it.
+            if(i < 0 || i > 3 || j < 0 || j > 3) {
+                dbp("Linked file '%s': SCtrl index out of range, not loading it.",
+                    filename.raw.c_str());
+                fclose(fh);
+                return false;
             }
             srf.ctrl[i][j] = c;
             srf.weight[i][j] = w;
@@ -939,6 +953,12 @@ bool SolveSpaceUI::LoadEntitiesFromSlvs(const Platform::Path &filename, EntityLi
                                 &i, &(c.x), &(c.y), &(c.z), &w) != 5)
             {
                 ssassert(false, "Unexpected CCtrl format");
+            }
+            if(i < 0 || i > 3) {
+                dbp("Linked file '%s': CCtrl index out of range, not loading it.",
+                    filename.raw.c_str());
+                fclose(fh);
+                return false;
             }
             crv.exact.ctrl[i] = c;
             crv.exact.weight[i] = w;
