@@ -143,6 +143,14 @@ bool LinkStl(const Platform::Path &filename, EntityList *el, SMesh *m, SShell *s
     
     f.read((char*)&n, 4);
     dbp("%d triangles", n);
+
+    // A short file claiming four billion of them otherwise spins until it runs
+    // out of memory.
+    if((uint64_t)n * 50 > data.size() - 84) {
+        Error("STL file '%s' claims more triangles than it contains",
+              filename.raw.c_str());
+        return false;
+    }
     
     float x,y,z;
     float xn,yn,zn;
