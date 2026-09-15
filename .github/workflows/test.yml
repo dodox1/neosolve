@@ -26,6 +26,11 @@ jobs:
     name: Test Windows
     steps:
     - uses: actions/checkout@v6
+    - name: Cache OpenCASCADE
+      uses: actions/cache@v6
+      with:
+        path: C:\occ
+        key: occ-7.9.3-vc14-64
     - name: Install Dependencies
       run: .github/scripts/install-windows.sh
       shell: bash
