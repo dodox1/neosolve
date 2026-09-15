@@ -4,6 +4,9 @@
 // Copyright 2008-2013 Jonathan Westhues.
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
+#ifdef HAVE_OPENCASCADE
+#include "occ/solidmodel.h"
+#endif
 
 namespace SolveSpace {
 
@@ -631,6 +634,16 @@ void StepFileWriter::WriteFooter() {
 void StepFileWriter::ExportSurfacesTo(const Platform::Path &filename) {
     Group *g = SK.GetGroup(SS.GW.activeGroup);
     SShell *shell = &(g->runningShell);
+
+#ifdef HAVE_OPENCASCADE
+    // Extrude, lathe and revolve build a TopoDS_Shape and leave runningShell
+    // empty, so without this there is nothing here to write out.
+    if(g->runningSolidModel && !g->runningSolidModel->IsEmpty()) {
+        if(g->runningSolidModel->ExportSTEP(filename)) return;
+        Error("Could not write the solid to a STEP file.");
+        return;
+    }
+#endif
 
     if(shell->surface.IsEmpty()) {
         Error("The model does not contain any surfaces to export.%s",
