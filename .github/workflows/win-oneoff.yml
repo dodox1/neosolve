@@ -1,0 +1,34 @@
+name: Windows one-off
+on:
+  push:
+    branches: [tmp/win-build]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache OpenCASCADE
+        uses: actions/cache@v6
+        with:
+          path: C:\occ
+          key: occ-7.9.3-vc14-64
+      - name: Install Dependencies
+        run: .github/scripts/install-windows.sh
+        shell: bash
+      - name: Build
+        run: .github/scripts/build-windows.sh release openmp
+        shell: bash
+      - name: Package
+        shell: bash
+        run: |
+          cd build/bin/RelWithDebInfo
+          rm -f vtk*.dll VTK*.dll Qt5*.dll *_debug.dll 2>/dev/null || true
+          7z a -tzip neosolve-windows-x64.zip solvespace.exe *.dll
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: neosolve-windows-x64
+          path: build/bin/RelWithDebInfo/neosolve-windows-x64.zip
