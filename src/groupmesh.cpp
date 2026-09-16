@@ -1520,8 +1520,13 @@ void Group::GenerateShellAndMesh() {
     bool skipOccShapeOps = (type == Type::IMPORT_SOLID) &&
                            (srcg->meshCombine == CombineAs::ASSEMBLE);
 
-    // If this group is suppressed, copy everything from the previous solid model
-    if(suppress && runningSolidModel) {
+    // A group that contributes no shape of its own - a link, a helix, a
+    // sketch, a suppressed group - has to hand the accumulated solid on
+    // unchanged. Clearing it and never filling it back in is what made the
+    // model vanish from that group onwards. The native side already passes
+    // the previous shell through in this case.
+    bool contributesOccShape = thisSolidModel && !thisSolidModel->shape.IsNull();
+    if(runningSolidModel && (suppress || !contributesOccShape)) {
         Group *pg = prevg;
         while(pg) {
             if(pg->runningSolidModel && !pg->runningSolidModel->shapeAcc.IsNull()) {
@@ -1531,8 +1536,14 @@ void Group::GenerateShellAndMesh() {
                 runningSolidModel->displayMesh.MakeFromCopyOf(&pg->runningSolidModel->displayMesh);
                 runningSolidModel->faces = pg->runningSolidModel->faces;
                 runningSolidModel->edges = pg->runningSolidModel->edges;
-                // Create FACE_OCC entities for selection (uses our group's handles)
-                { PROFILE_SCOPE("OccFaceEntities"); CreateOccFaceEntities(&SK.entity); }
+                // Only a suppressed group stands in for the one before it and
+                // needs its faces to be selectable. A group that carries the
+                // solid past itself has entities of its own, and adding face
+                // entities beside them collides with their handles.
+                if(suppress) {
+                    PROFILE_SCOPE("OccFaceEntities");
+                    CreateOccFaceEntities(&SK.entity);
+                }
                 break;
             }
             pg = pg->PreviousGroup();
@@ -1833,6 +1844,10 @@ void Group::GenerateDisplayItems() {
                     tri.meta.color = color;
                     displayMesh.AddTriangle(&tri);
                 }
+                // A link or a helix builds a native shell of its own beside
+                // the solid carried over from the previous group, and both
+                // belong on screen. Empty in every other case, so free.
+                runningShell.TriangulateInto(&displayMesh);
             } else {
 #else
             {
