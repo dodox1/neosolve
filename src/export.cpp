@@ -124,6 +124,23 @@ void SolveSpaceUI::ExportSectionTo(const Platform::Path &filename) {
     el.CullExtraneousEdges(/*both=*/false);
     bl.CullIdenticalBeziers(/*both=*/false);
 
+    if(el.l.IsEmpty() && bl.l.IsEmpty()) {
+        if(g->runningShell.surface.IsEmpty()) {
+            Error(_("The section plane crosses nothing, so no file was "
+                    "written.\n\n"
+                    "This model is a triangle mesh, and a section of one is "
+                    "made from the flat faces that lie in the plane itself; a "
+                    "plane cutting through the body finds nothing. Pick a flat "
+                    "face as the section plane, or use Export 2d View."));
+        } else {
+            Error(_("The section plane crosses nothing, so no file was "
+                    "written."));
+        }
+        el.Clear();
+        bl.Clear();
+        return;
+    }
+
     // And write the edges.
     VectorFileWriter *out = VectorFileWriter::ForFile(filename);
     if(out) {
