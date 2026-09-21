@@ -52,7 +52,6 @@ We encourage users who prefer a dependency-free experience to use upstream Solve
 
 ### Performance
 
-- **O(n log n) Triangulation**: Monotone polygon triangulation for large polygons
 - **Mesh Caching**: Cached OCC mesh generation for fast interactive updates
 - **Spatial Hashing**: O(1) vertex deduplication for STL import
 - **Built-in Profiler**: Profile command in CLI with JSON export
