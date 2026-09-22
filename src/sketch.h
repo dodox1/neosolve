@@ -24,9 +24,7 @@
 
 namespace SolveSpace {
 
-#ifdef HAVE_OPENCASCADE
 class SolidModelOcc;
-#endif
 
 class hConstraint;
 
@@ -274,7 +272,10 @@ public:
     SMesh           thisMesh;
     SMesh           runningMesh;
 
-#ifdef HAVE_OPENCASCADE
+    // None of this needs OpenCASCADE to compile -- two pointers to an
+    // incomplete type and plain data -- and keeping it out of an #ifdef is
+    // what makes sizeof(Group) the same in both configurations. The code
+    // that acts on it is still compiled only where OCC is available.
     SolidModelOcc  *thisSolidModel = nullptr;
     SolidModelOcc  *runningSolidModel = nullptr;
 
@@ -298,7 +299,6 @@ public:
         uint32_t index;  // Edge index for selection
     };
     std::vector<SourceEdge> sourceEdges;
-#endif
 
     bool            displayDirty;
     bool            displayWasDragging; // Track if last display was in drag mode
