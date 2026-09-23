@@ -58,6 +58,8 @@ public:
     size_t cachedShapeHash = 0;
     double cachedChordTol = 0.0;
     bool meshCacheValid = false;
+    // What the mesher said when it dropped a face, empty otherwise.
+    std::string meshError;
 
     // Edge information for selection (fillet/chamfer)
     struct EdgeInfo {

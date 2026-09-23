@@ -265,6 +265,10 @@ public:
     }               polyError;
 
     bool            booleanFailed;
+    // What an OpenCASCADE operation said when it could not do what the
+    // group asks. Empty when nothing went wrong. Not saved: it is worked
+    // out again on every regeneration.
+    std::string     occError;
 
     SShell          thisShell;
     SShell          runningShell;
@@ -390,6 +394,9 @@ public:
     bool IsUsedAsSweepPath() const;
 
     void GenerateShellAndMesh();
+    // Print what went wrong and keep the first message, so the group list
+    // can flag the row and the group screen can say what was tried.
+    void OccFailed(const char *fmt, ...);
     template<class T> void GenerateForStepAndRepeat(T *steps, T *outs, Group::CombineAs forWhat);
     template<class T> void GenerateForBoolean(T *a, T *b, T *o, Group::CombineAs how);
     void GenerateDisplayItems();

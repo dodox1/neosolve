@@ -136,6 +136,10 @@ void TextWindow::ShowListOfGroups() {
                     ((g->type == Group::Type::EXTRUDE ||
                       g->type == Group::Type::LATHE) &&
                      SK.GetGroup(g->opA)->polyError.how != PolyError::GOOD);
+        // An OpenCASCADE operation that did not do what the group asks is a
+        // fourth reason to flag the row, and unlike a bad contour it is not an
+        // optional check: the user asked for something that did not happen.
+        bool opFailed = !g->occError.empty();
         int dof = g->solved.dof;
         char sdof[16] = "ok ";
         if(ok && dof > 0) {
@@ -183,9 +187,9 @@ void TextWindow::ShowListOfGroups() {
                g->h.v, (&TextWindow::ScreenToggleGroupSuppress),
                canSuppress ? (g->suppress ? checkTrue : checkFalse) : "",
                // Link to the errors, if a problem occurred while solving
-               ok ? (warn ? 'm' : (dof > 0 ? 'i' : 's')) : 'x',
+               ok ? ((warn || opFailed) ? 'm' : (dof > 0 ? 'i' : 's')) : 'x',
                g->h.v, (&TextWindow::ScreenHowGroupSolved),
-               ok ? ((warn && SS.checkClosedContour) ? "err" : sdof) : "",
+               ok ? (((warn && SS.checkClosedContour) || opFailed) ? "err" : sdof) : "",
                ok ? "" : "ERR",
                // Link to a screen that gives more details on the group
                g->suppress ? 'g' : 'l',
@@ -795,6 +799,25 @@ void TextWindow::ShowGroupInfo() {
     Printf(false, " %f%Ld%Fd%s  treat all dimensions as reference",
         &TextWindow::ScreenChangeGroupOption,
         g->allDimsReference ? CHECK_TRUE : CHECK_FALSE);
+
+    if(!g->occError.empty()) {
+        Printf(false, "");
+        // The text window truncates past MAX_COLS instead of wrapping, and
+        // these messages are a sentence or two, so break them on spaces.
+        const size_t width = 54;
+        std::string rest = g->occError;
+        while(!rest.empty()) {
+            size_t take = rest.size();
+            if(take > width) {
+                take = rest.rfind(' ', width);
+                // A space at the very start would take nothing and loop forever.
+                if(take == std::string::npos || take == 0) take = width;
+            }
+            Printf(false, "%Fx%s%E", rest.substr(0, take).c_str());
+            rest.erase(0, take);
+            while(!rest.empty() && rest.front() == ' ') rest.erase(0, 1);
+        }
+    }
 
     if(g->booleanFailed) {
         Printf(false, "");

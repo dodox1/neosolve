@@ -7,6 +7,7 @@
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
 #include "profiler.h"
+#include <cstdarg>
 
 #ifdef HAVE_OPENCASCADE
 #include "occ/solidmodel.h"
@@ -371,10 +372,31 @@ void Group::GenerateForBoolean(T *prevs, T *thiss, T *outs, Group::CombineAs how
     }
 }
 
+void Group::OccFailed(const char *fmt, ...) {
+    va_list va;
+
+    va_start(va, fmt);
+    int size = vsnprintf(NULL, 0, fmt, va);
+    va_end(va);
+    if(size < 0) return;
+
+    std::string msg;
+    msg.resize(size + 1);
+    va_start(va, fmt);
+    vsnprintf(&msg[0], size + 1, fmt, va);
+    va_end(va);
+    msg.resize(size);
+
+    dbp("%s", msg.c_str());
+    // Keep the first one: the ones after it tend to be its consequences.
+    if(occError.empty()) occError = msg;
+}
+
 void Group::GenerateShellAndMesh() {
     PROFILE_FUNCTION();
     bool prevBooleanFailed = booleanFailed;
     booleanFailed = false;
+    occError.clear();
 
     Group *srcg = this;
 
@@ -480,7 +502,7 @@ void Group::GenerateShellAndMesh() {
                             thisSolidModel->shape = fuser.Shape();
                         }
                     } catch(const Standard_Failure &e) {
-                        dbp("OCC step-and-repeat fuse failed: %s", e.GetMessageString());
+                        OccFailed("OCC step-and-repeat fuse failed: %s", e.GetMessageString());
                     }
                 }
             } else
@@ -531,7 +553,7 @@ void Group::GenerateShellAndMesh() {
                         occMirrorSucceeded = true;
                     }
                 } catch(const Standard_Failure &e) {
-                    dbp("OCC mirror failed: %s", e.GetMessageString());
+                    OccFailed("OCC mirror failed: %s", e.GetMessageString());
                 }
             }
             // Fall back to mesh path if OCC not available or failed
@@ -665,7 +687,7 @@ void Group::GenerateShellAndMesh() {
                     thisSolidModel->shape = fuser.Shape();
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC extrude fuse failed: %s", e.GetMessageString());
+                OccFailed("OCC extrude fuse failed: %s", e.GetMessageString());
             }
         }
 #else
@@ -763,7 +785,7 @@ void Group::GenerateShellAndMesh() {
                     }
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC lathe failed: %s", e.GetMessageString());
+                OccFailed("OCC lathe failed: %s", e.GetMessageString());
             }
         }
 #else
@@ -835,7 +857,7 @@ void Group::GenerateShellAndMesh() {
                     }
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC revolve failed: %s", e.GetMessageString());
+                OccFailed("OCC revolve failed: %s", e.GetMessageString());
             }
         }
 #else
@@ -1013,7 +1035,7 @@ void Group::GenerateShellAndMesh() {
                     if(fillet.IsDone()) {
                         thisSolidModel->shape = fillet.Shape();
                     } else {
-                        dbp("OCC could not round %d of %d edges at radius "
+                        OccFailed("OCC could not round %d of %d edges at radius "
                             "%g mm. Rounding only some of a solid's edges can "
                             "fail where a rounded edge meets one that is not; "
                             "rounding all of them, or a smaller radius, may "
@@ -1021,7 +1043,7 @@ void Group::GenerateShellAndMesh() {
                     }
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC fillet failed: %s", e.GetMessageString());
+                OccFailed("OCC fillet failed: %s", e.GetMessageString());
             }
         }
     } else if(type == Type::CHAMFER) {
@@ -1095,7 +1117,7 @@ void Group::GenerateShellAndMesh() {
                     if(chamfer.IsDone()) {
                         thisSolidModel->shape = chamfer.Shape();
                     } else {
-                        dbp("OCC could not bevel %d of %d edges at %g mm. "
+                        OccFailed("OCC could not bevel %d of %d edges at %g mm. "
                             "Beveling only some of a solid's edges can fail "
                             "where a beveled edge meets one that is not; "
                             "beveling all of them, or a smaller distance, may "
@@ -1103,7 +1125,7 @@ void Group::GenerateShellAndMesh() {
                     }
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC chamfer failed: %s", e.GetMessageString());
+                OccFailed("OCC chamfer failed: %s", e.GetMessageString());
             }
         }
     } else if(type == Type::SHELL) {
@@ -1176,10 +1198,10 @@ void Group::GenerateShellAndMesh() {
                 if(shellMaker.IsDone()) {
                     thisSolidModel->shape = shellMaker.Shape();
                 } else {
-                    dbp("Shell operation failed");
+                    OccFailed("Shell operation failed");
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC shell failed: %s", e.GetMessageString());
+                OccFailed("OCC shell failed: %s", e.GetMessageString());
             }
         }
     }
@@ -1260,10 +1282,10 @@ void Group::GenerateShellAndMesh() {
             // ThruSections dereferences a null curve and segfaults when it is
             // built with fewer than two sections, so don't even try.
             if(profA.empty() || profB.empty()) {
-                dbp("OCC loft: need two usable profiles");
+                OccFailed("OCC loft: need two usable profiles");
             } else try {
                 if(profA.size() != profB.size()) {
-                    dbp("OCC loft: the sketches hold %d and %d contours, so only the "
+                    OccFailed("OCC loft: the sketches hold %d and %d contours, so only the "
                         "%d nearest pairs are lofted",
                         (int)profA.size(), (int)profB.size(),
                         (int)std::min(profA.size(), profB.size()));
@@ -1282,7 +1304,7 @@ void Group::GenerateShellAndMesh() {
 
                     TopoDS_Shape solid;
                     if(!LoftBetween(a.outer, b.outer, &solid)) {
-                        dbp("OCC loft: OCC could not loft between two contours");
+                        OccFailed("OCC loft: OCC could not loft between two contours");
                         continue;
                     }
 
@@ -1290,7 +1312,7 @@ void Group::GenerateShellAndMesh() {
                     // along the loft, so a hole cannot be handed to it. Loft the
                     // holes into solids of their own and cut those out instead.
                     if(a.holes.size() != b.holes.size()) {
-                        dbp("OCC loft: the paired contours have %d and %d holes, so "
+                        OccFailed("OCC loft: the paired contours have %d and %d holes, so "
                             "only the %d nearest pairs of holes are lofted",
                             (int)a.holes.size(), (int)b.holes.size(),
                             (int)std::min(a.holes.size(), b.holes.size()));
@@ -1309,14 +1331,14 @@ void Group::GenerateShellAndMesh() {
 
                         TopoDS_Shape hole;
                         if(!LoftBetween(a.holes[i], b.holes[hi], &hole)) {
-                            dbp("OCC loft: OCC could not loft hole %d", (int)i);
+                            OccFailed("OCC loft: OCC could not loft hole %d", (int)i);
                             continue;
                         }
                         BRepAlgoAPI_Cut cut(solid, hole);
                         if(cut.IsDone()) {
                             solid = cut.Shape();
                         } else {
-                            dbp("OCC loft: OCC could not cut hole %d", (int)i);
+                            OccFailed("OCC loft: OCC could not cut hole %d", (int)i);
                         }
                     }
 
@@ -1328,14 +1350,14 @@ void Group::GenerateShellAndMesh() {
                         if(fuse.IsDone()) {
                             shape = fuse.Shape();
                         } else {
-                            dbp("OCC loft: OCC could not fuse the lofted contours");
+                            OccFailed("OCC loft: OCC could not fuse the lofted contours");
                         }
                     }
                 }
 
                 if(haveShape) thisSolidModel->shape = shape;
             } catch(const Standard_Failure &e) {
-                dbp("OCC loft failed: %s", e.GetMessageString());
+                OccFailed("OCC loft failed: %s", e.GetMessageString());
             }
         }
     }
@@ -1421,7 +1443,7 @@ void Group::GenerateShellAndMesh() {
                     }
                 }
             } catch(const Standard_Failure &e) {
-                dbp("OCC sweep failed: %s", e.GetMessageString());
+                OccFailed("OCC sweep failed: %s", e.GetMessageString());
             }
         }
     }
@@ -1634,6 +1656,9 @@ void Group::GenerateShellAndMesh() {
             // Create FACE_OCC entities for these faces so they work with selection
             CreateOccFaceEntities(&SK.entity);
             { PROFILE_SCOPE("OccTriangulate"); runningSolidModel->Triangulate(SS.ChordTolMm()); }
+            // A face the mesher gave up on belongs in the same place as a
+            // failed operation: the group is not showing what was asked for.
+            if(occError.empty()) occError = runningSolidModel->meshError;
             { PROFILE_SCOPE("OccExtractEdges"); runningSolidModel->ExtractEdges(); }
         }
     }

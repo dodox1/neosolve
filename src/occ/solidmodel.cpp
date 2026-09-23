@@ -426,6 +426,7 @@ void SolidModelOcc::Triangulate(double chordTol) {
     }
 
     displayMesh.Clear();
+    meshError.clear();
 
     try {
         // Generate mesh with specified tolerance. The deflection is the chord
@@ -460,9 +461,11 @@ void SolidModelOcc::Triangulate(double chordTol) {
                 missing++;
                 if(!SS.exportMode) MarkFaceBoundary(face);
             }
-            dbp("OCC could not mesh %d of %d faces at a chord tolerance of %g mm "
+            meshError = ssprintf(
+                "OCC could not mesh %d of %d faces at a chord tolerance of %g mm "
                 "(status 0x%x); the mesh is incomplete.",
                 missing, total, chordTol, (unsigned)meshGen.GetStatusFlags());
+            dbp("%s", meshError.c_str());
         }
 
         // Use a default gray color - actual color will be set by Group
