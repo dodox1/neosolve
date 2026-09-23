@@ -172,6 +172,10 @@ int StepFileWriter::InsertCurve(int number) {
 // return:
 //        true, if the edge curve is already defined
 bool StepFileWriter::HasEdgeCurveAnAlias(int number, int prevFinish, int thisFinish, int curveId, bool *flip) {
+    // The caller reads this whichever way we return, and a new edge curve is
+    // written in its own direction, so say so rather than leaving it unset.
+    if(nullptr != flip) *flip = false;
+
     // Look for this edge in the alias list.
     for(edgeCurveAliases_t &e : edgeCurveAliases) {
         if(exportParts && !(e.color.Equals(currentColor))) {
