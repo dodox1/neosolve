@@ -38,7 +38,7 @@ We encourage users who prefer a dependency-free experience to use upstream Solve
 - **Circle-Line Tangent**: Constrain circles tangent to lines
 - **Concentric**: Select multiple circles/arcs to make centers coincident
 - **Point-on-Cubic**: Constrain points to lie on Bezier curves
-- **Point-on-Segment**: Bound points to finite line segments (not infinite lines)
+- **Point-on-Segment**: *not implemented yet.* The constraint type, its solver equations and its drawing exist, but nothing creates one: there is no menu item, and the equations are the same as Point-on-Line, so the point is not bounded to the segment. Bounding `t` to [0,1] would take two slack equations, the way the inequality constraints already do it.
 - **Inequality Constraints**: Minimum/maximum distance constraints (≥ and ≤)
 
 ### UI Improvements
