@@ -655,6 +655,14 @@ bool SolveSpaceUI::LoadFromFile(const Platform::Path &filename, bool canCancel) 
     if(!ReloadAllLinked(filename, canCancel)) {
         return false;
     }
+#ifdef HAVE_OPENCASCADE
+    // An imported solid's reference entities are built from the imported shape,
+    // so they have to exist before the first regeneration: a group whose
+    // workplane stands on them is otherwise pruned as dangling, and everything
+    // that depends on it goes with it. Creating the group does this by
+    // regenerating twice; opening a file has to do it here.
+    PreloadImportedSolids();
+#endif
     UpgradeLegacyData();
 
     return true;
