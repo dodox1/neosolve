@@ -36,5 +36,6 @@ TEST_CASE(normal_watertight_volume) {
     // the spline surface, roughly 11360 mm³ (slightly more than the true
     // value, since the mesh approximates the spline surface with inscribed
     // facets).
-    CHECK_EQ_EPS(m->CalculateVolume() / 204638.6271882122, 1.0);
+    // Within a percent; see boolean_tangent_fillet for why.
+    CHECK_TRUE(fabs(m->CalculateVolume() / 204638.6271882122 - 1.0) < 0.01);
 }

@@ -36,5 +36,6 @@ TEST_CASE(normal_watertight_volume) {
     // The cube is 60³ = 216000 mm³; the tool cuts away a wedge bounded by the
     // spline surface, roughly 10500 mm³ (a little less than the true value,
     // since the mesh approximates the spline surface with inscribed facets).
-    CHECK_EQ_EPS(m->CalculateVolume() / 205477.058604742, 1.0);
+    // Within a percent; see boolean_tangent_fillet for why.
+    CHECK_TRUE(fabs(m->CalculateVolume() / 205477.058604742 - 1.0) < 0.01);
 }

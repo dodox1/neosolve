@@ -37,5 +37,9 @@ TEST_CASE(normal_watertight_volume) {
     // The prism is 1/2 * 1 * 2 * 1 = 1 mm³; the fillet cuts away a sliver
     // just under (1 - π/4) * 0.5² * 0.5 ≈ 0.0268 mm³ of it (just under,
     // since the mesh approximates the cylinder with inscribed facets).
-    CHECK_EQ_EPS(m->CalculateVolume() / 0.9730161212, 1.0);
+    // Within a percent, not within LENGTH_EPS: the fillet is a cylinder and
+    // its volume follows the tessellation, which differs between kernels -
+    // 0.07% here with OpenCASCADE. A Boolean that loses or duplicates
+    // material moves this by tens of percent, so the check keeps its teeth.
+    CHECK_TRUE(fabs(m->CalculateVolume() / 0.9730161212 - 1.0) < 0.01);
 }
