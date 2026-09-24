@@ -58,11 +58,33 @@ TtfFontList::~TtfFontList() {
 void TtfFontList::LoadAll() {
     if(loaded) return;
 
+    int scanned = 0, skipped = 0, guessed = 0;
+    std::string firstSkipped;
     for(const Platform::Path &font : Platform::GetFontFiles()) {
         TtfFont tf = {};
         tf.fontFile = font;
-        if(tf.LoadFromFile(fontLibrary))
+        scanned++;
+        if(tf.LoadFromFile(fontLibrary)) {
+            if(tf.capHeightGuessed) guessed++;
             l.Add(&tf);
+        } else {
+            if(skipped == 0) {
+                firstSkipped = tf.FontFileBaseName() + " (" + tf.loadError + ")";
+            }
+            skipped++;
+        }
+    }
+
+    // One line rather than one per font: a font collection routinely holds
+    // bitmap fonts, which are not scalable, and fonts for scripts with no
+    // Latin 'A' to measure a cap height from. Neither is a fault.
+    if(skipped > 0) {
+        dbp("fonts: %d of %d could not be used, first was %s",
+            skipped, scanned, firstSkipped.c_str());
+    }
+    if(guessed > 0) {
+        dbp("fonts: %d have no 'A' to measure, so their cap height is the "
+            "requested height", guessed);
     }
 
     // Add builtin font to end of font list so it is displayed first in the UI
@@ -95,10 +117,15 @@ TtfFont *TtfFontList::LoadFont(const std::string &font)
 
     if(tf != l.end()) {
         if(tf->fontFace == NULL) {
-            if(tf->IsResource())
-                tf->LoadFromResource(fontLibrary, /*keepOpen=*/true);
-            else
-                tf->LoadFromFile(fontLibrary, /*keepOpen=*/true);
+            bool ok = tf->IsResource()
+                          ? tf->LoadFromResource(fontLibrary, /*keepOpen=*/true)
+                          : tf->LoadFromFile(fontLibrary, /*keepOpen=*/true);
+            // Worth saying for the one font the sketch actually asks for, even
+            // though the same condition is only counted while scanning.
+            if(!ok) {
+                dbp("fonts: '%s' could not be loaded: %s",
+                    tf->FontFileBaseName().c_str(), tf->loadError.c_str());
+            }
         }
         return tf;
     } else {
@@ -203,8 +230,7 @@ bool TtfFont::LoadFromResource(FT_Library fontLibrary, bool keepOpen) {
 //-----------------------------------------------------------------------------
 bool TtfFont::ExtractTTFData(bool keepOpen) {
     if(int fterr = FT_Select_Charmap(fontFace, FT_ENCODING_UNICODE)) {
-        dbp("freetype: loading unicode CMap for file '%s' failed: %s",
-            fontFile.raw.c_str(), ft_error_string(fterr));
+        loadError = ssprintf("no unicode character map: %s", ft_error_string(fterr));
         FT_Done_Face(fontFace);
         fontFace = NULL;
         return false;
@@ -224,8 +250,8 @@ bool TtfFont::ExtractTTFData(bool keepOpen) {
     sizeRequest.horiResolution = 128;
     sizeRequest.vertResolution = 128;
     if(int fterr = FT_Request_Size(fontFace, &sizeRequest)) {
-        dbp("freetype: size request for file '%s' failed: %s",
-            fontFile.raw.c_str(), ft_error_string(fterr));
+        // A bitmap font cannot answer a scalable size request at all.
+        loadError = ssprintf("not scalable: %s", ft_error_string(fterr));
         FT_Done_Face(fontFace);
         fontFace = NULL;
         return false;
@@ -234,10 +260,9 @@ bool TtfFont::ExtractTTFData(bool keepOpen) {
     char chr = 'A';
     uint32_t gid = FT_Get_Char_Index(fontFace, 'A');
     if (gid == 0) {
-        dbp("freetype: CID-to-GID mapping for CID 0x%04x in file '%s' failed: %s; "
-            "using CID as GID",
-            chr, fontFile.raw.c_str(), ft_error_string(gid));
-        dbp("Assuming cap height is the same as requested height (this is likely wrong).");
+        // A font for a script that has no Latin 'A' is normal, not broken; we
+        // just cannot measure its cap height from that letter.
+        capHeightGuessed = true;
         capHeight = (double)sizeRequest.height;
     }
 

@@ -31,6 +31,11 @@ public:
     std::string     name;
     FT_FaceRec_    *fontFace;
     double          capHeight;
+    // Why this font could not be used, or why its cap height is a guess.
+    // Recorded rather than printed: scanning a font collection meets both of
+    // these routinely, and one line per font buries everything else.
+    std::string     loadError;
+    bool            capHeightGuessed;
 
     void SetResourceID(const std::string &resource);
     bool IsResource() const;
