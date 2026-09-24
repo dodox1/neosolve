@@ -110,10 +110,16 @@ Known limits
   are safe.
 * **A workplane made on a face does not rotate with it.** One built from two
   edges and a point does.
-* **Linking a part built with fillet, chamfer, shell, loft or sweep drops the
-  rest of that assembly to triangles.**
-* **Difference and union against a linked part do not cut.** They no longer
-  delete your model, which is what they used to do.
+* **A linked part arrives as a frozen mesh, not as geometry.** A part built with
+  fillet, chamfer, shell, loft or sweep saves no surfaces, only triangles, so in
+  the assembly its curves stay as coarse as they were when that part was saved
+  and do not refine with the chord tolerance. Operations you add after the link
+  are unaffected and work normally.
+* **A linked part does not combine with a body built here.** Difference does not
+  cut and the linked part is not drawn at all; union draws both, which looks like
+  it worked, but they are two overlapping bodies rather than one, so the export
+  reports it as self-intersecting. Assemble is the mode that behaves as intended.
+  None of them deletes your model any more, which is what they used to do.
 * **Loft takes two profiles only**, pairs contours by nearest centre, has no
   ruled option and cannot loft to a point.
 * **Filleting every edge is all or nothing**, and the default 1 mm ignores the
