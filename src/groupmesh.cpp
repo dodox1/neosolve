@@ -1552,13 +1552,12 @@ void Group::GenerateShellAndMesh() {
 
     // Perform OCC boolean operations to build the running solid model
     if(thisSolidModel && !thisSolidModel->shape.IsNull() && !skipOccShapeOps && !suppress) {
-        // For IMPORT_SOLID, only transform OCC shape if there's a previous solid
-        // (transformation is needed for boolean operations with other solids)
-        bool needShapeTransform = (type == Type::IMPORT_SOLID) && prevg &&
-                                  prevg->runningSolidModel &&
-                                  !prevg->runningSolidModel->IsEmpty();
-
-        if(type == Type::IMPORT_SOLID && needShapeTransform) {
+        // An imported solid has to be put where the user put it, whether or
+        // not there is anything to combine it with. Doing this only when a
+        // previous solid existed left the first imported body sitting at the
+        // coordinates of its own file: its own group drew it in the right
+        // place, but every group after it inherited the untransformed shape.
+        if(type == Type::IMPORT_SOLID) {
             Vector offset = {
                 SK.GetParam(h.param(0))->val,
                 SK.GetParam(h.param(1))->val,
