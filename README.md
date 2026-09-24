@@ -59,7 +59,6 @@ We encourage users who prefer a dependency-free experience to use upstream Solve
 ### Export Enhancements
 
 - **G-Code Arcs**: Export arcs as G02/G03 commands instead of line segments
-- **SVG Improvements**: Closed paths include Z command
 - **CLI Group Export**: `--group` option for targeted export
 
 ## Installation
