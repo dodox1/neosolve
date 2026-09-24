@@ -408,7 +408,15 @@ public:
         auto signal = gtkMenu.signal_deactivate().connect([&]() { loop->quit(); });
 
         gtkMenu.show_all();
+#if GTK_CHECK_VERSION(3, 22, 0)
+        // Wayland has no global coordinates and requires a popup to name its
+        // parent surface, which the old call cannot do: it warns that the
+        // window is "a temporary window without parent" and that it cannot be
+        // positioned on screen.
+        gtkMenu.popup_at_pointer(nullptr);
+#else
         gtkMenu.popup(0, GDK_CURRENT_TIME);
+#endif
         loop->run();
         signal.disconnect();
     }
