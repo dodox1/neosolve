@@ -34,6 +34,14 @@ Unreleased
 * A link or a helix after an extrude keeps the solid instead of deleting it from
   that group onwards. Ten millimetres of a real part had been missing from every
   export of it.
+* An imported STEP goes where you put it. Its placement was applied only when
+  there was already another solid to combine it with, so the first imported body
+  sat at the coordinates of its own file from the next group onwards. Union,
+  difference and intersection against an imported solid all work now.
+* Opening a file no longer deletes a sketch made on an imported solid. The
+  workplane's reference entities were not rebuilt before the first regeneration,
+  so the sketch was pruned as dangling and everything after it went too - and
+  saving made it permanent.
 * A fillet or chamfer keeps the edges you chose when the file is reopened. They
   are saved now.
 * A profile inside a profile comes out as a hole.
@@ -117,9 +125,11 @@ Known limits
   are unaffected and work normally.
 * **A linked part does not combine with a body built here.** Difference does not
   cut and the linked part is not drawn at all; union draws both, which looks like
-  it worked, but they are two overlapping bodies rather than one, so the export
-  reports it as self-intersecting. Assemble is the mode that behaves as intended.
-  None of them deletes your model any more, which is what they used to do.
+  it worked, but they are two overlapping bodies rather than one. Assemble is the
+  mode that behaves as intended. None of them deletes your model any more, which
+  is what they used to do. **The way round it is to export the part to STEP and
+  Import it instead of linking**: an imported solid is real geometry and union,
+  difference and intersection all work against it. You give up the live link.
 * **Loft takes two profiles only**, pairs contours by nearest centre, has no
   ruled option and cannot loft to a point.
 * **Filleting every edge is all or nothing**, and the default 1 mm ignores the
