@@ -23,8 +23,8 @@ STEP export works for OpenCASCADE models, which it did not before, and so do the
 mesh and 2d exports. Section export is the weak one, see `Known limits`, and so
 is keeping a fillet on the same edges after you edit an earlier sketch.
 
-Unreleased
-----------
+daily-2026-09-30
+----------------
 
 ### Solid modelling
 

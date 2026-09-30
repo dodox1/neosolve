@@ -1,0 +1,66 @@
+name: Windows release
+
+# The CD workflow on master is not registered in this fork, and touching it
+# would move a branch we keep identical to upstream. A workflow on another
+# branch does register, which is how the one-off Windows build was done.
+on:
+  push:
+    tags:
+      - 'daily-*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build and publish Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache OpenCASCADE
+        uses: actions/cache@v6
+        with:
+          path: C:\occ
+          key: occ-7.9.3-vc14-64
+
+      - name: Install dependencies
+        run: .github/scripts/install-windows.sh
+        shell: bash
+
+      # Only the release path gathers the TK*.dll set; a plain build produces an
+      # exe that will not start on its own.
+      - name: Build
+        run: .github/scripts/build-windows.sh release openmp
+        shell: bash
+
+      - name: Package
+        shell: bash
+        run: |
+          cd build/bin/RelWithDebInfo
+          rm -f vtk*.dll VTK*.dll Qt5*.dll *_debug.dll 2>/dev/null || true
+          echo "packaging $(ls *.dll | wc -l) DLLs"
+          7z a -tzip neosolve-windows-x64.zip solvespace.exe *.dll
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: neosolve-windows-x64
+          path: build/bin/RelWithDebInfo/neosolve-windows-x64.zip
+
+      # Only a tag gets a release; a manual run just leaves the artifact.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            build/bin/RelWithDebInfo/neosolve-windows-x64.zip \
+            --title "neosolve daily build, ${GITHUB_REF_NAME}" \
+            --notes "Windows build of the \`daily-bugfix\` branch. Unzip anywhere and run \`solvespace.exe\`; the OpenCASCADE DLLs are in the zip.
+
+          What is fixed and what still is not: \`CHANGELOG-daily-bugfix.md\` on the branch, and in particular its **Known limits** section. Please read that before relying on it for anything.
+
+          This is not an official neosolve release. It is the branch I run for my own work, and I am glad to hear what breaks: open an issue here and attach the \`.slvs\` if you can."
