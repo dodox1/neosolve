@@ -9,6 +9,10 @@ on:
       - master
     tags-ignore:
       - v*
+      # A daily-* tag is a release of an already tested branch; the release
+      # workflow builds Windows from it and this would only build all three
+      # platforms again for nothing.
+      - daily-*
 
 jobs:
   test_ubuntu:
