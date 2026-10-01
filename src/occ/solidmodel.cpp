@@ -25,6 +25,7 @@
 #include <Poly.hxx>
 #include <Precision.hxx>
 #include <BRepAdaptor_Curve.hxx>
+#include <gp_Circ.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -697,6 +698,12 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
 
     // Collect selected line segment endpoints
     std::vector<std::pair<Vector, Vector>> selectedLines;
+    // and selected circles and arcs, as centre, axis and radius. A cylinder is
+    // built from quadrant faces, so one circular edge on screen is several arcs
+    // sharing a circle; matching on the circle catches all of them, which is
+    // what picking that edge means.
+    struct SelectedCircle { Vector centre, axis; double radius; };
+    std::vector<SelectedCircle> selectedCircles;
     int selectedEntities = 0;
 
     for(int i = 0; i < selection->n; i++) {
@@ -712,13 +719,20 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
             Vector a = SK.GetEntity(e->point[0])->PointGetNum();
             Vector b = SK.GetEntity(e->point[1])->PointGetNum();
             selectedLines.push_back({a, b});
+        } else if(e->type == Entity::Type::CIRCLE ||
+                  e->type == Entity::Type::ARC_OF_CIRCLE) {
+            SelectedCircle sc;
+            sc.centre = SK.GetEntity(e->point[0])->PointGetNum();
+            sc.axis   = e->Normal()->NormalN();
+            sc.radius = e->CircleGetRadiusNum();
+            selectedCircles.push_back(sc);
         }
     }
 
     // Nothing selected at all is a request to take every edge; a selection we
     // could make nothing of is not, and has to be reported rather than treated
     // as one.
-    if(selectedLines.empty()) return selectedEntities == 0;
+    if(selectedLines.empty() && selectedCircles.empty()) return selectedEntities == 0;
 
     // Match selected lines against OCC edges
     double tol = 1e-3;  // 1 micron tolerance
@@ -748,6 +762,8 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
                 Vector ea = OccUtil::FromOccPoint(p1);
                 Vector eb = OccUtil::FromOccPoint(p2);
 
+                bool matched = false;
+
                 // Check if this edge matches any selected line
                 for(const auto &line : selectedLines) {
                     Vector la = line.first;
@@ -758,6 +774,26 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
                                  (ea.Minus(lb).Magnitude() < tol && eb.Minus(la).Magnitude() < tol);
 
                     if(match) {
+                        outEdges->push_back(edgeIndex);
+                        matched = true;
+                        break;
+                    }
+                }
+
+                // And against any selected circle or arc. The edge may be a
+                // quarter of it, so compare the circle it lies on rather than
+                // its endpoints; the axis may point either way.
+                if(!matched && !selectedCircles.empty() &&
+                   curve.GetType() == GeomAbs_Circle) {
+                    gp_Circ c = curve.Circle();
+                    Vector ec = OccUtil::FromOccPoint(c.Location());
+                    gp_Dir d = c.Axis().Direction();
+                    Vector eaxis = Vector::From(d.X(), d.Y(), d.Z());
+
+                    for(const auto &sc : selectedCircles) {
+                        if(fabs(c.Radius() - sc.radius) > tol) continue;
+                        if(ec.Minus(sc.centre).Magnitude() > tol) continue;
+                        if(fabs(eaxis.Dot(sc.axis)) < 0.999) continue;
                         outEdges->push_back(edgeIndex);
                         break;
                     }
