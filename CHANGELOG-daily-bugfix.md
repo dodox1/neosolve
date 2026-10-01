@@ -23,6 +23,14 @@ STEP export works for OpenCASCADE models, which it did not before, and so do the
 mesh and 2d exports. Section export is the weak one, see `Known limits`, and so
 is keeping a fillet on the same edges after you edit an earlier sketch.
 
+Unreleased
+----------
+
+* A circular edge can be picked for a fillet or a chamfer. Clicking one used to
+  report that the selection held no edge, because matching recognised straight
+  edges only; the way round it was to select the face instead. Reported as issue
+  #1.
+
 daily-2026-09-30
 ----------------
 
