@@ -698,10 +698,7 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
 
     // Collect selected line segment endpoints
     std::vector<std::pair<Vector, Vector>> selectedLines;
-    // and selected circles and arcs, as centre, axis and radius. A cylinder is
-    // built from quadrant faces, so one circular edge on screen is several arcs
-    // sharing a circle; matching on the circle catches all of them, which is
-    // what picking that edge means.
+    // and selected circles and arcs, as centre, axis and radius.
     struct SelectedCircle { Vector centre, axis; double radius; };
     std::vector<SelectedCircle> selectedCircles;
     int selectedEntities = 0;
@@ -780,9 +777,8 @@ bool SolidModelOcc::FindSelectedEdges(const SelectionList *selection,
                     }
                 }
 
-                // And against any selected circle or arc. The edge may be a
-                // quarter of it, so compare the circle it lies on rather than
-                // its endpoints; the axis may point either way.
+                // An edge may be one arc of the picked circle, so compare
+                // the circle it lies on; its axis may point either way.
                 if(!matched && !selectedCircles.empty() &&
                    curve.GetType() == GeomAbs_Circle) {
                     gp_Circ c = curve.Circle();
