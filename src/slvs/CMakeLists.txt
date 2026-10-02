@@ -71,10 +71,14 @@ set_target_properties(slvs PROPERTIES
     SOVERSION 1
 )
 
-# if(NOT WIN32)
+# Installed as libnslvs, with the header under its own directory, because this
+# fork's solver is not upstream's: it carries constraint types upstream does not
+# have. Sharing a soname and an slvs.h would leave two different libraries
+# claiming one API, and whichever the loader found first would win.
+# Include it as <neosolve/slvs.h>.
+set_target_properties(slvs PROPERTIES OUTPUT_NAME nslvs)
 install(TARGETS slvs
     COMPONENT     slvs
     LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-# endif()
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/neosolve)
