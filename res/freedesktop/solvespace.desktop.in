@@ -1,10 +1,10 @@
 [Desktop Entry]
 Version=1.0
-Name=SolveSpace
-Comment=A parametric 2d/3d CAD
+Name=neosolve
+Comment=A parametric 2d/3d CAD with fillet, chamfer and STEP
 Exec=${CMAKE_INSTALL_FULL_BINDIR}/${SS_EXE} %f
 MimeType=application/x-solvespace
-Icon=solvespace
+Icon=neosolve
 Type=Application
 Categories=Graphics;3DGraphics;Engineering;
 Keywords=parametric;cad;2d;3d;

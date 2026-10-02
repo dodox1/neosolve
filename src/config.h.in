@@ -5,7 +5,7 @@
 #define GIT_HASH_URL "https://github.com/0xSeren/neosolve/commit/@solvespace_GIT_HASH@"
 
 /* Non-OS X *nix only */
-#define UNIX_DATADIR "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_DATAROOTDIR@/solvespace"
+#define UNIX_DATADIR "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_DATAROOTDIR@/neosolve"
 
 /* Do we have the si library on win32, or libspnav on *nix? */
 #cmakedefine HAVE_SPACEWARE

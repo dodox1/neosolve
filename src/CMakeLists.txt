@@ -516,12 +516,16 @@ endif()
 # solvespace unix package
 
 if(NOT (WIN32 OR APPLE OR EMSCRIPTEN))
+    # Installed as neosolve so that this and solvespace can be installed at
+    # once; the CMake targets keep their names.
     if(ENABLE_GUI)
+        set_target_properties(solvespace PROPERTIES OUTPUT_NAME neosolve)
         install(TARGETS solvespace
             COMPONENT   solvespace
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     endif()
     if(ENABLE_CLI)
+        set_target_properties(solvespace-cli PROPERTIES OUTPUT_NAME neosolve-cli)
         install(TARGETS solvespace-cli
             COMPONENT   solvespace
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

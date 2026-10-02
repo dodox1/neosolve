@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.solvespace.SolveSpace</id>
+  <id>io.github.0xSeren.neosolve</id>
 
-  <name>SolveSpace</name>
+  <name>neosolve</name>
   <summary>A free (GPLv3) parametric 3d CAD tool</summary>
 
   <metadata_license>CC0-1.0</metadata_license>

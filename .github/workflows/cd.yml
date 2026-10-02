@@ -31,7 +31,7 @@ jobs:
           cd build
           make install DESTDIR=appdir
           # Strip binaries and libraries to reduce size
-          find appdir -type f \( -name 'solvespace' -o -name 'solvespace-cli' -o -name '*.so*' \) \
+          find appdir -type f \( -name 'neosolve' -o -name 'neosolve-cli' -o -name '*.so*' \) \
             -exec strip --strip-unneeded {} + 2>/dev/null || true
           tar -czf neosolve-linux-x64.tar.gz -C appdir .
       - name: Upload artifact

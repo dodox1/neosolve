@@ -1,0 +1,4 @@
+[Thumbnailer Entry]
+TryExec=neosolve-cli
+Exec=neosolve-cli thumbnail --view isometric --size %sx%s --output %o %i
+MimeType=application/x-solvespace

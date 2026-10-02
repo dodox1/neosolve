@@ -572,7 +572,7 @@ static Platform::Path FindLocalResourceDir() {
         return resourceDir;
     }
 
-    resourceDir = selfPath.Parent().Parent().Join("share").Join("solvespace");
+    resourceDir = selfPath.Parent().Parent().Join("share").Join("neosolve");
     if(stat(resourceDir.raw.c_str(), &st) != -1) {
         // A resource directory exists at a relative path, good.
         return resourceDir;

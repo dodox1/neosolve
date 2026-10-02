@@ -109,7 +109,7 @@ else() # Unix
 
         get_filename_component(name_dir ${name} DIRECTORY)
         install(FILES ${source}
-            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/solvespace/${name_dir})
+            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/neosolve/${name_dir})
     endfunction()
 endif()
 
@@ -183,9 +183,9 @@ else()
         endforeach()
     else()
         if(USE_QT_GUI)
-            set(SS_EXE solvespace-qt)
+            set(SS_EXE neosolve-qt)
         else()
-            set(SS_EXE solvespace)
+            set(SS_EXE neosolve)
         endif()
         configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/freedesktop/solvespace.desktop.in
@@ -196,33 +196,35 @@ else()
         set(DESKTOP_FILE_NAME ${SS_EXE}.desktop)
         configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/freedesktop/com.solvespace.SolveSpace.metainfo.xml.in
-            ${CMAKE_CURRENT_BINARY_DIR}/freedesktop/com.solvespace.SolveSpace.metainfo.xml)
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freedesktop/com.solvespace.SolveSpace.metainfo.xml
+            ${CMAKE_CURRENT_BINARY_DIR}/freedesktop/io.github.0xSeren.neosolve.metainfo.xml)
+        configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/freedesktop/solvespace.thumbnailer.in
+            ${CMAKE_CURRENT_BINARY_DIR}/freedesktop/neosolve.thumbnailer)
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freedesktop/io.github.0xSeren.neosolve.metainfo.xml
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)
 
+        # Same media type as solvespace, since it is the same file format;
+        # shared-mime-info merges two packages declaring it.
         install(FILES freedesktop/solvespace-mime.xml
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/mime/packages
-            RENAME      solvespace-slvs.xml)
+            RENAME      neosolve-slvs.xml)
 
-        install(FILES freedesktop/solvespace.thumbnailer
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freedesktop/neosolve.thumbnailer
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/thumbnailers
-            RENAME      solvespace.thumbnailer)
+            RENAME      neosolve.thumbnailer)
 
         install(FILES freedesktop/solvespace-scalable.svg
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
-            RENAME      solvespace.svg)
-        install(FILES freedesktop/solvespace-scalable.svg
-            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/mimetypes
-            RENAME      application-x-solvespace.svg)
+            RENAME      neosolve.svg)
 
         foreach(SIZE 16x16 24x24 32x32 48x48)
             install(FILES freedesktop/solvespace-${SIZE}.png
                 DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${SIZE}/apps
-                RENAME      solvespace.png)
-            install(FILES freedesktop/solvespace-${SIZE}.png
-                DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${SIZE}/mimetypes
-                RENAME      application-x-solvespace.png)
+                RENAME      neosolve.png)
         endforeach()
+        # The icons for the file type itself are named after the media type, so
+        # both packages would want to own them. solvespace installs them; a
+        # machine with only this one gets the generic icon.
     endif()
 endif()
 
