@@ -28,7 +28,9 @@ static int CmdSolve(const std::string &filename) {
     SS.showToolbar = false;
     SS.checkClosedContour = false;
 
-    if(!SS.LoadFromFile(Platform::Path::From(filename))) {
+    // Absolute, or a path linked from the file resolves against nothing.
+    Platform::Path path = Platform::Path::From(filename).Expand(/*fromCurrentDirectory=*/true);
+    if(!SS.LoadFromFile(path)) {
         fprintf(stderr, "cannot load: %s\n", filename.c_str());
         return 1;
     }
@@ -59,7 +61,7 @@ static int CmdResave(const std::string &filename) {
     SS.showToolbar = false;
     SS.checkClosedContour = false;
 
-    Platform::Path path = Platform::Path::From(filename);
+    Platform::Path path = Platform::Path::From(filename).Expand(/*fromCurrentDirectory=*/true);
     if(!SS.LoadFromFile(path)) {
         fprintf(stderr, "cannot load: %s\n", filename.c_str());
         return 1;
