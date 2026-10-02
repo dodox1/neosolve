@@ -257,7 +257,6 @@ bool TtfFont::ExtractTTFData(bool keepOpen) {
         return false;
     }
 
-    char chr = 'A';
     uint32_t gid = FT_Get_Char_Index(fontFace, 'A');
     if (gid == 0) {
         // A font for a script that has no Latin 'A' is normal, not broken; we

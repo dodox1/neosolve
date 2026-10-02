@@ -804,7 +804,6 @@ void Group::GenerateShellAndMesh() {
         }
 
         double anglef = SK.GetParam(h.param(3))->val * 4; // why the 4 is needed?
-        double dists = 0, distf = 0;
         double angles = 0.0;
         if(subtype != Subtype::ONE_SIDED) {
             anglef *= 0.5;
@@ -861,6 +860,7 @@ void Group::GenerateShellAndMesh() {
             }
         }
 #else
+        double dists = 0, distf = 0;
         SBezierLoopSetSet *sblss = &(src->bezierLoops);
         SBezierLoopSet *sbls;
         for(sbls = sblss->l.First(); sbls; sbls = sblss->l.NextAfter(sbls)) {
@@ -1139,7 +1139,6 @@ void Group::GenerateShellAndMesh() {
                 TopTools_ListOfShape facesToRemove;
                 std::vector<TopoDS_Face> allFaces;
                 std::list<TopoDS_Shape> seenFaces;
-                uint32_t faceIndex = 0;
 
                 TopExp_Explorer faceExp(prev->runningSolidModel->shapeAcc, TopAbs_FACE);
                 while(faceExp.More()) {
@@ -1159,7 +1158,6 @@ void Group::GenerateShellAndMesh() {
                         allFaces.push_back(face);
                     }
                     faceExp.Next();
-                    faceIndex++;
                 }
 
                 if(!allFaces.empty()) {
