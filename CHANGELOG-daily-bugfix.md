@@ -30,6 +30,11 @@ Unreleased
   report that the selection held no edge, because matching recognised straight
   edges only; the way round it was to select the face instead. Reported as issue
   #1.
+* neosolve installs beside SolveSpace on Linux. Every file the package put on the
+  system was named solvespace, so a package manager refused to have both and you
+  had to remove the one you already use. It is neosolve and neosolve-cli now,
+  with its own resources, desktop entry and icons, and the solver library as
+  libnslvs. A .slvs still offers both programs to open it. Reported as issue #2.
 
 daily-2026-09-30
 ----------------
