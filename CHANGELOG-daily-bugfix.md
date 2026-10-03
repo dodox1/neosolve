@@ -147,6 +147,10 @@ Known limits
   ruled option and cannot loft to a point.
 * **Filleting every edge is all or nothing**, and the default 1 mm ignores the
   size of the part. Try a smaller radius or fewer edges.
+* **A fillet follows tangency, not the edge you picked.** It takes the whole run
+  of edges tangent to each other through that one, so a rounded rectangle rounds
+  its entire perimeter at once. To leave a corner out, keep it sharp in the
+  sketch; the run then stops there. OpenCASCADE's behaviour, and FreeCAD's too.
 * **A sweep result is never checked**, so impossible geometry gives a broken
   solid rather than a message.
 * **Upstream SolveSpace cannot open a file containing these operations.** Files
