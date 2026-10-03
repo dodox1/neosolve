@@ -620,6 +620,7 @@ public:
                               SMesh *m, SShell *sh);
     bool ReloadAllLinked(const Platform::Path &filename, bool canCancel = false);
     void PreloadImportedSolids();
+    void ReloadImportedSolids();
     // And the various export options
     void ExportAsPngTo(const Platform::Path &filename);
     void ExportMeshTo(const Platform::Path &filename);

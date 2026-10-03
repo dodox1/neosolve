@@ -1138,6 +1138,23 @@ try_again:
     return true;
 }
 
+// Read every imported file again, one at a time so that one that cannot be
+// read keeps what was cached for it. The cache is not the only copy either:
+// the group holds the shape, the bounding box entities and a transformed
+// mesh, and skips the work while it has them.
+void SolveSpaceUI::ReloadImportedSolids() {
+#ifdef HAVE_OPENCASCADE
+    for(Group &g : SK.group) {
+        if(g.type != Group::Type::IMPORT_SOLID || g.linkFile.IsEmpty()) continue;
+        if(!SolidModelOcc::ReloadImport(g.linkFile)) continue;
+        if(g.thisSolidModel) g.thisSolidModel->Clear();
+        g.impEntity.Clear();
+        g.cachedMeshValid = false;
+        g.displayDirty = true;
+    }
+#endif
+}
+
 void SolveSpaceUI::PreloadImportedSolids() {
 #ifdef HAVE_OPENCASCADE
     for(Group &g : SK.group) {
