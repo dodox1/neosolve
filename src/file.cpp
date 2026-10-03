@@ -1092,6 +1092,41 @@ try_again:
         }
     }
 
+#ifdef HAVE_OPENCASCADE
+    // An imported solid is a link too, so a missing one gets the same offer.
+    for(Group &g : SK.group) {
+        if(g.type != Group::Type::IMPORT_SOLID || g.linkFile.IsEmpty()) continue;
+        if(linkMap.count(g.linkFile)) g.linkFile = linkMap[g.linkFile];
+
+        for(;;) {
+            bool loaded = false;
+            SolidModelOcc::ImportCached(g.linkFile, &loaded);
+            if(loaded || linkMap.count(g.linkFile)) break;
+
+            dbp("Missing file for group: %s", g.name.c_str());
+            const auto rel = g.linkFile.RelativeTo(saveFile);
+            auto response = LocateImportedFile(rel, canCancel);
+            if(response == Platform::MessageDialog::Response::CANCEL) return false;
+            if(response != Platform::MessageDialog::Response::YES) {
+                linkMap[g.linkFile].Clear();
+                break;
+            }
+
+            Platform::FileDialogRef dialog = Platform::CreateOpenFileDialog(SS.GW.window);
+            dialog->AddFilters(Platform::SolidImportFileFilters);
+            dialog->ThawChoices(settings, "ImportSolid");
+            dialog->SuggestFilename(rel);
+            if(!dialog->RunModal()) {
+                if(canCancel) return false;
+                break;
+            }
+            dialog->FreezeChoices(settings, "ImportSolid");
+            linkMap[g.linkFile] = dialog->GetFilename();
+            g.linkFile = dialog->GetFilename();
+        }
+    }
+#endif
+
     for(Request &r : SK.request) {
         if(r.type != Request::Type::IMAGE) continue;
 
