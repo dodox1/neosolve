@@ -210,23 +210,27 @@ the `.slvs`. That last one is worth doing one day for a different reason, the
 missing file problem and the 4.5 seconds on every open, and it is a format change
 of its own.
 
-Open, and worth settling before stage 1
----------------------------------------
+Settled before stage 1
+----------------------
 
-**An imported file's relative path is resolved against the working directory, not
-against the `.slvs`.** `ReloadAllLinked` skips everything that is not
-`Type::LINKED` ([file.cpp:1028](src/file.cpp#L1028)), so moving the model or
-opening it from elsewhere makes the import fail silently. With one file this is
-an annoyance. Stage 1 turns one file into nine, so it has to be fixed first or
-the wizard just multiplies the fault.
+Three things stood in the way, all fixed on `daily-bugfix` and none of them part
+of the feature.
 
-**`ClearImportCache()` is written and nothing calls it**
-([solidmodel.cpp:1105](src/occ/solidmodel.cpp#L1105)). Regenerate All reloads a
-linked sketch and a traced image but not an imported solid, so a STEP rewritten
-during a session is not picked up. One line beside `SS.images.clear()` in
-`Command::REGEN_ALL`.
+**A missing imported file could not be located** (`0ba1f7dc`). A missing linked
+sketch is offered a file dialog; an imported solid was not, because
+`ReloadAllLinked` skips every group that is not `LINKED`. The sketch built on the
+solid was pruned with everything after it, and saving made that permanent. Stage
+1 turns one file into nine, so this had to go first or the wizard would have
+multiplied it. The pruning itself is upstream's and shared with `LINKED`, so it
+was left alone.
 
-**Import failures only reach the console.** `ImportSTEP` is a static method with
-no group to report to, so its `dbp()` lines never become `occError`. All the user
-sees is `Failed to import solid from ...` with no reason, which is how a STEP
-wireframe exported by mistake produces "No shapes found" and nothing useful.
+**Regenerate All did not reload an imported solid** (`679adef6`).
+`ClearImportCache()` had been written and never called.
+
+**An import failure said only that it failed** (`40e2b701`). The reason now
+reaches the dialog, so a `.step` written by Export 3d Wireframe explains itself.
+
+A fourth claim turned out to be wrong and is recorded here so it is not chased
+again: an imported file's relative path **is** resolved against the `.slvs`, not
+against the working directory. Measured by solving one model from its own
+directory and from `/tmp` by absolute path, identical both ways.
