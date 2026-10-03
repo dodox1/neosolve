@@ -60,6 +60,8 @@ public:
     bool meshCacheValid = false;
     // What the mesher said when it dropped a face, empty otherwise.
     std::string meshError;
+    // Why reading the file failed, empty otherwise.
+    std::string importError;
 
     // Edge information for selection (fillet/chamfer)
     struct EdgeInfo {

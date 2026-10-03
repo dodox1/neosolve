@@ -923,9 +923,10 @@ void Group::GenerateShellAndMesh() {
                 // Check if already cached; if not, do synchronous import
                 if(!SolidModelOcc::GetCachedMesh(linkFile)) {
                     bool success = false;
-                    SolidModelOcc::ImportCached(linkFile, &success);
+                    SolidModelOcc m = SolidModelOcc::ImportCached(linkFile, &success);
                     if(!success) {
-                        Error("Failed to import solid from '%s'", linkFile.raw.c_str());
+                        OccFailed("Could not import '%s'. %s", linkFile.raw.c_str(),
+                                  m.importError.c_str());
                     }
                 }
 
@@ -956,7 +957,8 @@ void Group::GenerateShellAndMesh() {
                 thisSolidModel->GetBoundingBox(&minPt, &maxPt);
                 CreateBoundingBoxEntities(&impEntity, minPt, maxPt);
             } else {
-                Error("Failed to import solid from '%s'", linkFile.raw.c_str());
+                OccFailed("Could not import '%s'. %s", linkFile.raw.c_str(),
+                          thisSolidModel->importError.c_str());
             }
         }
     }

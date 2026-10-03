@@ -549,6 +549,16 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
             dialog->FreezeChoices(settings, "ImportSolid");
             g.linkFile = dialog->GetFilename();
 
+            // Read it now rather than at the first regeneration, which runs
+            // several times and would ask several times over.
+            bool imported = false;
+            SolidModelOcc m = SolidModelOcc::ImportCached(g.linkFile, &imported);
+            if(!imported) {
+                Error("Could not import '%s'. %s", g.linkFile.raw.c_str(),
+                      m.importError.c_str());
+                return;
+            }
+
             g.name = g.linkFile.FileStem();
             for(size_t i = 0; i < g.name.length(); i++) {
                 if(!(isalnum(g.name[i]) || (unsigned)g.name[i] >= 0x80)) {

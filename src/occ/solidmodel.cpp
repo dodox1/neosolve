@@ -61,6 +61,8 @@ SolidModelOcc::SolidModelOcc(const SolidModelOcc &other)
       cachedShapeHash(other.cachedShapeHash),
       cachedChordTol(other.cachedChordTol),
       meshCacheValid(other.meshCacheValid),
+      meshError(other.meshError),
+      importError(other.importError),
       edges(other.edges),
       faces(other.faces)
 {
@@ -75,6 +77,8 @@ SolidModelOcc& SolidModelOcc::operator=(const SolidModelOcc &other) {
         cachedShapeHash = other.cachedShapeHash;
         cachedChordTol = other.cachedChordTol;
         meshCacheValid = other.meshCacheValid;
+        meshError = other.meshError;
+        importError = other.importError;
         edges = other.edges;
         faces = other.faces;
         displayMesh.Clear();
@@ -90,6 +94,8 @@ SolidModelOcc::SolidModelOcc(SolidModelOcc &&other) noexcept
       cachedShapeHash(other.cachedShapeHash),
       cachedChordTol(other.cachedChordTol),
       meshCacheValid(other.meshCacheValid),
+      meshError(std::move(other.meshError)),
+      importError(std::move(other.importError)),
       edges(std::move(other.edges)),
       faces(std::move(other.faces))
 {
@@ -117,6 +123,8 @@ SolidModelOcc& SolidModelOcc::operator=(SolidModelOcc &&other) noexcept {
         cachedShapeHash = other.cachedShapeHash;
         cachedChordTol = other.cachedChordTol;
         meshCacheValid = other.meshCacheValid;
+        meshError = std::move(other.meshError);
+        importError = std::move(other.importError);
         edges = std::move(other.edges);
         faces = std::move(other.faces);
 
@@ -912,7 +920,8 @@ SolidModelOcc SolidModelOcc::ImportSTEP(const Platform::Path &path, bool *succes
         std::string pathStr = path.raw;
 
         if(reader.ReadFile(pathStr.c_str()) != IFSelect_RetDone) {
-            dbp("STEP import: Failed to read file");
+            result.importError = "The file is missing, or is not a STEP file.";
+            dbp("STEP import: %s", result.importError.c_str());
             return result;
         }
 
@@ -920,7 +929,10 @@ SolidModelOcc SolidModelOcc::ImportSTEP(const Platform::Path &path, bool *succes
         int numShapes = reader.NbShapes();
 
         if(numShapes == 0) {
-            dbp("STEP import: No shapes found");
+            result.importError = "The file holds no solid, only curves. Of the "
+                                 "exports that write STEP, only Export Surfaces "
+                                 "writes a solid.";
+            dbp("STEP import: %s", result.importError.c_str());
             return result;
         }
 
@@ -939,7 +951,8 @@ SolidModelOcc SolidModelOcc::ImportSTEP(const Platform::Path &path, bool *succes
         result.shapeAcc = result.shape;
         *success = true;
     } catch(const Standard_Failure &e) {
-        dbp("STEP import error: %s", e.GetMessageString());
+        result.importError = e.GetMessageString();
+        dbp("STEP import error: %s", result.importError.c_str());
     }
 
     return result;
@@ -954,14 +967,16 @@ SolidModelOcc SolidModelOcc::ImportBREP(const Platform::Path &path, bool *succes
         std::string pathStr = path.raw;
 
         if(!BRepTools::Read(result.shape, pathStr.c_str(), builder)) {
-            dbp("BREP import: Failed to read file");
+            result.importError = "The file is missing, or is not a BREP file.";
+            dbp("BREP import: %s", result.importError.c_str());
             return result;
         }
 
         result.shapeAcc = result.shape;
         *success = true;
     } catch(const Standard_Failure &e) {
-        dbp("BREP import error: %s", e.GetMessageString());
+        result.importError = e.GetMessageString();
+        dbp("BREP import error: %s", result.importError.c_str());
     }
 
     return result;
@@ -976,7 +991,8 @@ SolidModelOcc SolidModelOcc::ImportIGES(const Platform::Path &path, bool *succes
         std::string pathStr = path.raw;
 
         if(reader.ReadFile(pathStr.c_str()) != IFSelect_RetDone) {
-            dbp("IGES import: Failed to read file");
+            result.importError = "The file is missing, or is not an IGES file.";
+            dbp("IGES import: %s", result.importError.c_str());
             return result;
         }
 
@@ -984,7 +1000,8 @@ SolidModelOcc SolidModelOcc::ImportIGES(const Platform::Path &path, bool *succes
         int numShapes = reader.NbShapes();
 
         if(numShapes == 0) {
-            dbp("IGES import: No shapes found");
+            result.importError = "The file holds no solid, only curves.";
+            dbp("IGES import: %s", result.importError.c_str());
             return result;
         }
 
@@ -1003,7 +1020,8 @@ SolidModelOcc SolidModelOcc::ImportIGES(const Platform::Path &path, bool *succes
         result.shapeAcc = result.shape;
         *success = true;
     } catch(const Standard_Failure &e) {
-        dbp("IGES import error: %s", e.GetMessageString());
+        result.importError = e.GetMessageString();
+        dbp("IGES import error: %s", result.importError.c_str());
     }
 
     return result;
