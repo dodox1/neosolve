@@ -5,6 +5,9 @@
 // Copyright 2008-2013 Jonathan Westhues.
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
+#ifdef HAVE_OPENCASCADE
+#include "occ/solidmodel.h"
+#endif
 
 namespace SolveSpace {
 
@@ -1390,7 +1393,26 @@ void GraphicsWindow::MenuEdit(Command id) {
 
         case Command::REGEN_ALL:
             SS.images.clear();
+#ifdef HAVE_OPENCASCADE
+            // One file at a time, so that one that cannot be read keeps what
+            // was cached for it. The cache is not the only copy either: the
+            // group holds the shape, the bounding box entities and a
+            // transformed mesh, and skips the work while it has them.
+            for(Group &g : SK.group) {
+                if(g.type != Group::Type::IMPORT_SOLID || g.linkFile.IsEmpty()) continue;
+                if(!SolidModelOcc::ReloadImport(g.linkFile)) continue;
+                if(g.thisSolidModel) g.thisSolidModel->Clear();
+                g.impEntity.Clear();
+                g.cachedMeshValid = false;
+                g.displayDirty = true;
+            }
+#endif
             SS.ReloadAllLinked(SS.saveFile);
+#ifdef HAVE_OPENCASCADE
+            // Same pairing as LoadFromFile: the bounding box entities have to
+            // exist before the regeneration that copies them into SK.entity.
+            SS.PreloadImportedSolids();
+#endif
             SS.GenerateAll(SolveSpaceUI::Generate::UNTIL_ACTIVE);
             SS.ScheduleShowTW();
             break;

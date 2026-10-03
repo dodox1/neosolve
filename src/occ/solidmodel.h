@@ -164,6 +164,8 @@ public:
 
     // Clear the import cache (call when closing document or freeing memory)
     static void ClearImportCache();
+    // Read an imported file again, keeping what is cached if it cannot be read.
+    static bool ReloadImport(const Platform::Path &path);
 
     // Async import - starts background thread for import
     static void StartAsyncImport(const Platform::Path &path);

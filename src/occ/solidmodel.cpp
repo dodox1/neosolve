@@ -1124,6 +1124,28 @@ void SolidModelOcc::ClearImportCache() {
     importCache.clear();
 }
 
+bool SolidModelOcc::ReloadImport(const Platform::Path &path) {
+    CachedImport previous;
+    bool had = false;
+    {
+        std::lock_guard<std::mutex> lock(importCacheMutex);
+        auto it = importCache.find(path.raw);
+        if(it != importCache.end()) {
+            previous = std::move(it->second);
+            importCache.erase(it);
+            had = true;
+        }
+    }
+
+    bool ok = false;
+    ImportCached(path, &ok);
+    if(!ok && had) {
+        std::lock_guard<std::mutex> lock(importCacheMutex);
+        importCache.emplace(path.raw, std::move(previous));
+    }
+    return ok;
+}
+
 // Static storage for async imports
 std::map<std::string, SolidModelOcc::AsyncImportState> SolidModelOcc::asyncImports;
 std::mutex SolidModelOcc::asyncImportMutex;
