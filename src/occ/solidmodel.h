@@ -13,6 +13,7 @@
 #include "polygon.h"
 #include "platform/platform.h"
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Face.hxx>
 #include <map>
 #include <vector>
 #include <future>
@@ -223,6 +224,10 @@ private:
     static std::map<std::string, AsyncImportState> asyncImports;
     static std::mutex asyncImportMutex;
 };
+
+// Trace a face's boundary into SS.nakedEdges, which the graphics window draws
+// in the error style.
+void MarkFaceBoundary(const TopoDS_Face &face);
 
 } // namespace SolveSpace
 

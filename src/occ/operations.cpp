@@ -40,10 +40,31 @@
 #include <gp_Trsf.hxx>
 #include <gp_Quaternion.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
+#include <BRepCheck_Analyzer.hxx>
 
 #ifdef HAVE_OPENCASCADE
 
 namespace SolveSpace {
+
+// OpenCASCADE can report success and still hand back a solid with broken faces.
+// Keep the shape, but trace those faces the way an unmeshable one is traced, so
+// the damage is on screen instead of only in the geometry.
+static void CheckOccResult(const TopoDS_Shape &shape, Group *g, const char *what) {
+    if(shape.IsNull()) return;
+    BRepCheck_Analyzer check(shape);
+    if(check.IsValid()) return;
+
+    int bad = 0, total = 0;
+    for(TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face &face = TopoDS::Face(ex.Current());
+        total++;
+        if(check.IsValid(face)) continue;
+        bad++;
+        if(!SS.exportMode) MarkFaceBoundary(face);
+    }
+    g->OccFailed("The %s came out with %d bad face(s) of %d, marked in the "
+                 "drawing. A different size often goes through.", what, bad, total);
+}
 
 // Round the selected edges of the previous group's solid.
 void Group::GenerateFillet() {
@@ -118,6 +139,7 @@ void Group::GenerateFillet() {
                 fillet.Build();
                 if(fillet.IsDone()) {
                     thisSolidModel->shape = fillet.Shape();
+                    CheckOccResult(thisSolidModel->shape, this, "fillet");
                 } else {
                     OccFailed("OCC could not round %d of %d edges at radius "
                         "%g mm. Rounding only some of a solid's edges can "
@@ -203,6 +225,7 @@ void Group::GenerateChamfer() {
                 chamfer.Build();
                 if(chamfer.IsDone()) {
                     thisSolidModel->shape = chamfer.Shape();
+                    CheckOccResult(thisSolidModel->shape, this, "chamfer");
                 } else {
                     OccFailed("OCC could not bevel %d of %d edges at %g mm. "
                         "Beveling only some of a solid's edges can fail "
@@ -285,6 +308,7 @@ void Group::GenerateShell() {
 
             if(shellMaker.IsDone()) {
                 thisSolidModel->shape = shellMaker.Shape();
+                CheckOccResult(thisSolidModel->shape, this, "shell");
             } else {
                 OccFailed("Shell operation failed");
             }
@@ -443,7 +467,10 @@ void Group::GenerateLoft() {
                 }
             }
 
-            if(haveShape) thisSolidModel->shape = shape;
+            if(haveShape) {
+                thisSolidModel->shape = shape;
+                CheckOccResult(thisSolidModel->shape, this, "loft");
+            }
         } catch(const Standard_Failure &e) {
             OccFailed("OCC loft failed: %s", e.GetMessageString());
         }
@@ -526,6 +553,7 @@ void Group::GenerateSweep() {
                     if(pipeBuilder.IsDone()) {
                         pipeBuilder.MakeSolid();
                         thisSolidModel->shape = pipeBuilder.Shape();
+                        CheckOccResult(thisSolidModel->shape, this, "sweep");
                     }
                 }
             }

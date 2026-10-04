@@ -386,8 +386,6 @@ static void ProcessShapeWithFaces(const TopoDS_Shape &shape, SMesh &mesh, RgbaCo
     }
 }
 
-namespace {
-
 // Trace a face's boundary into SS.nakedEdges, which the graphics window draws
 // in the error style. The native kernel marks geometry it could not handle the
 // same way.
@@ -406,8 +404,6 @@ void MarkFaceBoundary(const TopoDS_Face &face) {
         }
     }
 }
-
-} // namespace
 
 void SolidModelOcc::Triangulate(double chordTol) {
     if(shapeAcc.IsNull()) {
