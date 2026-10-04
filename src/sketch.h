@@ -404,6 +404,11 @@ public:
     void CreateOccFaceEntities(EntityList *el);
     void PopulateBoundingBoxEntities();
     bool GenerateImportedSolid(Group *srcg);
+    void GenerateFillet();
+    void GenerateChamfer();
+    void GenerateShell();
+    void GenerateLoft();
+    void GenerateSweep();
 #endif
 
     enum class DrawMeshAs { DEFAULT, HOVERED, SELECTED };
