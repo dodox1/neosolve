@@ -22,11 +22,15 @@ What the group offers to the rest of the sketch is thin:
 
 * 21 entities from `CreateBoundingBoxEntities`: a centre point, three normals,
   eight corners and twelve edges of a box.
-* one `FACE_OCC` entity per face, so faces can be clicked.
 
-That is all. No edges, no vertices, no hole centres. The only thing you can
-constrain to is a box around the part, which is why it feels like a mesh even
-though it is not.
+That is all. **Not even the faces are clickable**, which an earlier version of
+this note got wrong. `CreateOccFaceEntities` runs in the `else` at
+[groupmesh.cpp:1663](src/groupmesh.cpp#L1663), and an imported solid takes the
+branch above it that only transforms the cached mesh; with the default ASSEMBLE
+it returns from `GenerateShellAndMesh` several hundred lines earlier still. So
+an extrude or a fillet has clickable faces and an import has none, in any
+combine mode. The only thing you can constrain to is a box around the part,
+which is why it feels like a mesh even though it is not.
 
 What the file holds
 -------------------
@@ -142,6 +146,22 @@ but a file that has one would show real names. It is not a one line swap: a
 document comes back instead of a shape, `ImportSTEP` has to be rewritten and the
 resulting compound may nest differently, so it needs testing against every STEP
 we have.
+
+### Stage 0, give an imported solid the bookkeeping the others get
+
+Found on 2026-10-04, and it has to come first because stage 2 stands on it. An
+imported solid gets no face entities, so there is nothing on it to click, and
+with ASSEMBLE it never reaches the accumulator either, so the body disappears
+behind the next group that has geometry of its own (`tmp/t_solid4.slvs`, 2064
+triangles at the import and 12 at the extrude after it).
+
+Both come from the same shortcut: ASSEMBLE returns early from
+`GenerateShellAndMesh` and the remaining import path only transforms the cached
+mesh. Untangling it means an assembled body has to enter the accumulator as a
+`TopoDS_Compound`, two solids side by side with no boolean, which is the one
+thing `SolidModelOcc::Operation` has no case for. The fallback when a fuse fails
+already builds exactly that compound
+([solidmodel.cpp:207](src/occ/solidmodel.cpp#L207)).
 
 ### Stage 2, geometry from the solid into a sketch
 
