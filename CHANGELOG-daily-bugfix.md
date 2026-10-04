@@ -150,7 +150,8 @@ Known limits
 * **A fillet follows tangency, not the edge you picked.** It takes the whole run
   of edges tangent to each other through that one, so a rounded rectangle rounds
   its entire perimeter at once. To leave a corner out, keep it sharp in the
-  sketch; the run then stops there. OpenCASCADE's behaviour, and FreeCAD's too.
+  sketch; the run then stops there. This is how OpenCASCADE's fillet works and
+  not a choice neosolve makes.
 * **A sweep result is never checked**, so impossible geometry gives a broken
   solid rather than a message.
 * **Upstream SolveSpace cannot open a file containing these operations.** Files
