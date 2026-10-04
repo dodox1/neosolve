@@ -7,6 +7,9 @@
 #include "solvespace.h"
 #include "expr.h"
 #include "platform/platform.h"
+#ifdef HAVE_OPENCASCADE
+#include "occ/solidmodel.h"
+#endif
 
 using namespace SolveSpace;
 
@@ -74,6 +77,43 @@ static int CmdResave(const std::string &filename) {
     return 0;
 }
 
+// Write the last group's OpenCASCADE shape out as a BREP, which is the only
+// way to get at what the program actually meshes rather than a copy of it.
+static int CmdBrep(const std::string &filename, const std::string &out, int groupIndex) {
+#ifdef HAVE_OPENCASCADE
+    SS.Init();
+    SS.showToolbar = false;
+    SS.checkClosedContour = false;
+
+    Platform::Path path = Platform::Path::From(filename).Expand(/*fromCurrentDirectory=*/true);
+    if(!SS.LoadFromFile(path)) {
+        fprintf(stderr, "cannot load: %s\n", filename.c_str());
+        return 1;
+    }
+    SS.AfterNewFile();
+
+    Group *g = SK.GetGroup(SS.GW.activeGroup);
+    if(groupIndex > 0 && groupIndex <= SK.groupOrder.n) {
+        g = SK.GetGroup(SK.groupOrder[groupIndex - 1]);
+    }
+    if(!g->runningSolidModel || g->runningSolidModel->IsEmpty()) {
+        fprintf(stderr, "group %s has no OpenCASCADE shape\n",
+                g->DescriptionString().c_str());
+        return 1;
+    }
+    if(!g->runningSolidModel->ExportBREP(Platform::Path::From(out))) {
+        fprintf(stderr, "cannot write: %s\n", out.c_str());
+        return 1;
+    }
+    fprintf(stderr, "wrote %s from group %s\n", out.c_str(),
+            g->DescriptionString().c_str());
+    return 0;
+#else
+    fprintf(stderr, "built without OpenCASCADE\n");
+    return 1;
+#endif
+}
+
 int main(int argc, char **argv) {
     std::vector<std::string> args = Platform::InitCli(argc, argv);
 
@@ -81,6 +121,8 @@ int main(int argc, char **argv) {
         return CmdSolve(args[2]);
     } else if(args.size() == 3 && args[1] == "resave") {
         return CmdResave(args[2]);
+    } else if((args.size() == 4 || args.size() == 5) && args[1] == "brep") {
+        return CmdBrep(args[2], args[3], args.size() == 5 ? atoi(args[4].c_str()) : 0);
     } else if(args.size() == 3 && args[1] == "expr") {
         std::string expr = args[2], err;
         Expr *e = Expr::Parse(expr.c_str(), &err);
@@ -101,6 +143,8 @@ Commands:
         Load a file and report how each group solved.
     resave [file.slvs]
         Load a file, regenerate it, and save it back.
+    brep [file.slvs] [out.brep] [group]
+        Write a group's OpenCASCADE shape to a BREP file, the last by default.
 )");
     }
 
