@@ -403,6 +403,7 @@ public:
 #ifdef HAVE_OPENCASCADE
     void CreateOccFaceEntities(EntityList *el);
     void PopulateBoundingBoxEntities();
+    bool GenerateImportedSolid(Group *srcg);
 #endif
 
     enum class DrawMeshAs { DEFAULT, HOVERED, SELECTED };

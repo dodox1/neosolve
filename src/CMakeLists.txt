@@ -200,7 +200,8 @@ if(ENABLE_GUI OR ENABLE_CLI)
             occ/facebuilder.h
             occ/facebuilder.cpp
             occ/occutil.h
-            occ/occutil.cpp)
+            occ/occutil.cpp
+            occ/importsolid.cpp)
     endif()
 
     target_include_directories(solvespace-core PUBLIC
