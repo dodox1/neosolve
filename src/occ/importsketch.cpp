@@ -10,6 +10,13 @@
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRep_Tool.hxx>
+#include <GeomConvert_ApproxCurve.hxx>
+#include <GeomConvert_BSplineCurveToBezierCurve.hxx>
+#include <Geom_BezierCurve.hxx>
+#include <Geom_BSplineCurve.hxx>
+#include <Precision.hxx>
+#include <gp_Elips.hxx>
+#include <array>
 #include <TopExp.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 #include <TopoDS.hxx>
@@ -98,6 +105,84 @@ public:
         r->other = true;
         r->ModifyToSatisfy();
     }
+
+    void Cubic(const Vector *p) {
+        hRequest hr = SS.GW.AddRequest(Request::Type::CUBIC, /*rememberForUndo=*/false);
+        for(int i = 0; i < 4; i++) {
+            ProcessPoint(hr.entity(i + 1), p[i]);
+        }
+    }
+
+    // The ends meet the neighbouring curves at the face's vertices, not where
+    // a conversion happens to put them.
+    void Cubics(const TopoDS_Edge &e, std::vector<std::array<Vector, 4>> *pieces) {
+        if(pieces->empty()) return;
+        pieces->front()[0] = Place(BRep_Tool::Pnt(TopExp::FirstVertex(e)));
+        pieces->back()[3] = Place(BRep_Tool::Pnt(TopExp::LastVertex(e)));
+        for(const auto &p : *pieces) {
+            Cubic(p.data());
+        }
+    }
+
+    // A cubic is not rational, so an ellipse cannot be held exactly. It is the
+    // image of a circle, though, and a circle in 45 degree pieces is good to
+    // four parts in a million, a tenth of a micron on a 20 mm ellipse.
+    void Ellipse(const BRepAdaptor_Curve &c, std::vector<std::array<Vector, 4>> *pieces) {
+        gp_Elips el = c.Ellipse();
+        gp_Pnt o = el.Location();
+        gp_Vec x = gp_Vec(el.XAxis().Direction()) * el.MajorRadius(),
+               y = gp_Vec(el.YAxis().Direction()) * el.MinorRadius();
+        auto at = [&](double t) { return o.Translated(x * cos(t) + y * sin(t)); };
+        auto along = [&](double t) { return x * -sin(t) + y * cos(t); };
+
+        double t0 = c.FirstParameter(), t1 = c.LastParameter();
+        int n = (int)ceil((t1 - t0) / (PI / 4) - 1e-9);
+        double dt = (t1 - t0) / n, k = 4.0 / 3 * tan(dt / 4);
+        for(int i = 0; i < n; i++) {
+            double a = t0 + i * dt, b = a + dt;
+            pieces->push_back({{ Place(at(a)), Place(at(a).Translated(along(a) * k)),
+                                Place(at(b).Translated(along(b) * -k)), Place(at(b)) }});
+        }
+    }
+
+    // A spline that is already cubic or less splits into Beziers at its knots
+    // exactly; anything else is fitted to a micron.
+    bool Spline(const BRepAdaptor_Curve &c, std::vector<std::array<Vector, 4>> *pieces) {
+        Handle(Geom_BSplineCurve) bs;
+        if(c.GetType() == GeomAbs_BSplineCurve && !c.IsRational() && c.Degree() <= 3) {
+            bs = c.BSpline();
+        } else {
+            Handle(BRepAdaptor_Curve) h = new BRepAdaptor_Curve(c);
+            GeomConvert_ApproxCurve approx(h, 1e-3, GeomAbs_C1, 64, 3);
+            if(!approx.HasResult()) return false;
+            bs = approx.Curve();
+        }
+        GeomConvert_BSplineCurveToBezierCurve split(bs, c.FirstParameter(), c.LastParameter(),
+                                                    Precision::PConfusion());
+        for(int i = 1; i <= split.NbArcs(); i++) {
+            Handle(Geom_BezierCurve) b = split.Arc(i);
+            b->Increase(3);
+            pieces->push_back({{ Place(b->Pole(1)), Place(b->Pole(2)),
+                                Place(b->Pole(3)), Place(b->Pole(4)) }});
+        }
+        return true;
+    }
+
+    bool Curve(const TopoDS_Edge &e) {
+        try {
+            BRepAdaptor_Curve c(e);
+            std::vector<std::array<Vector, 4>> pieces;
+            if(c.GetType() == GeomAbs_Ellipse) {
+                Ellipse(c, &pieces);
+            } else if(!Spline(c, &pieces)) {
+                return false;
+            }
+            Cubics(e, &pieces);
+            return true;
+        } catch(const Standard_Failure &) {
+            return false;
+        }
+    }
 };
 
 bool IsFullCircle(const BRepAdaptor_Curve &c) {
@@ -159,6 +244,7 @@ void Group::SketchImportedFace(hEntity face) const {
 
     for(int i : others) {
         const TopoDS_Edge &e = TopoDS::Edge(edges(i));
+        if(fs.Curve(e)) continue;
         fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))));
         fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
     }

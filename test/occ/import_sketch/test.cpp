@@ -4,9 +4,10 @@
 
 // part.brep is the box of import_faces with its corner at (10, 20) rounded to
 // r=3, the hole of radius 2 at (5, 10), and a slot with half-round ends of
-// radius 1 between x=2.5 and 7.5 around y=4, placed 100 along x. Its bottom face
-// lies in the plane of the sketch, so Sketch on Face there has lines, a circle
-// and arcs to draw, one of them a half circle.
+// radius 1 between x=2.5 and 7.5 around y=4, and a hole of radius 0.8 leaning
+// 45 degrees towards +x from (3, 16), placed 100 along x. Its bottom face lies in
+// the plane of the sketch, so Sketch on Face there has lines, a circle, arcs,
+// one of them a half circle, and an ellipse to draw.
 
 namespace {
 
@@ -38,6 +39,13 @@ Vector ArcMiddle(Entity *arc) {
     return c.Plus(Vector::From(r * cos(m), r * sin(m), 0));
 }
 
+// How far off the ellipse the leaning hole leaves on the bottom face a point
+// is, as a fraction of its size: 0 on it.
+double OffEllipse(Vector p, double sy) {
+    double u = (p.x - 103) / (0.8 * sqrt(2)), v = (p.y - 16 * sy) / 0.8;
+    return fabs(sqrt(u * u + v * v) - 1);
+}
+
 // Turned half a turn about x, the part has y and z negated, and every circle's
 // axis points against the sketch normal instead of along it.
 void CheckFillsASketch(Test::Helper *helper, bool turned) {
@@ -66,7 +74,7 @@ void CheckFillsASketch(Test::Helper *helper, bool turned) {
     CHECK_TRUE(s->solved.how == SolveResult::OKAY);
     CHECK_TRUE(s->solved.dof == 0);
 
-    int lines = 0, circles = 0, fillets = 0, slotArcs = 0, others = 0;
+    int lines = 0, circles = 0, fillets = 0, slotArcs = 0, cubics = 0, others = 0;
     for(Request &r : SK.request) {
         if(r.group != hs) continue;
         Entity *e = SK.GetEntity(r.h.entity(0));
@@ -93,6 +101,18 @@ void CheckFillsASketch(Test::Helper *helper, bool turned) {
                 CHECK_TRUE(fabs(radius - 1) < LENGTH_EPS);
                 CHECK_TRUE(m.x < 103.5 + LENGTH_EPS || m.x > 106.5 - LENGTH_EPS);
             }
+        } else if(r.type == Request::Type::CUBIC) {
+            // On the ellipse at both ends and halfway along, eight to the turn.
+            cubics++;
+            Vector p[4];
+            for(int i = 0; i < 4; i++) {
+                p[i] = SK.GetEntity(e->point[i])->PointGetNum();
+            }
+            Vector mid = p[0].Plus(p[1].ScaledBy(3)).Plus(p[2].ScaledBy(3)).Plus(p[3])
+                             .ScaledBy(1.0 / 8);
+            CHECK_TRUE(OffEllipse(p[0], sy) < 1e-5);
+            CHECK_TRUE(OffEllipse(p[3], sy) < 1e-5);
+            CHECK_TRUE(OffEllipse(mid, sy) < 1e-5);
         } else {
             others++;
         }
@@ -101,6 +121,7 @@ void CheckFillsASketch(Test::Helper *helper, bool turned) {
     CHECK_TRUE(circles == 1);
     CHECK_TRUE(fillets == 1);
     CHECK_TRUE(slotArcs >= 4);
+    CHECK_TRUE(cubics == 8);
     CHECK_TRUE(others == 0);
 }
 
@@ -122,6 +143,6 @@ TEST_CASE(normal_curved_face_is_refused) {
     for(Entity &e : SK.entity) {
         if(e.group == g->h && e.IsFace() && !g->ImportedFaceIsFlat(e.h)) curved++;
     }
-    // The hole, the rounded corner and the two ends of the slot.
-    CHECK_TRUE(curved >= 4);
+    // The two holes, the rounded corner and the two ends of the slot.
+    CHECK_TRUE(curved >= 5);
 }
