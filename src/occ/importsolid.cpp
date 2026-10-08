@@ -128,6 +128,14 @@ uint32_t Group::ImportedFaceHandle(uint32_t tag) const {
     return h.entity(IMPORT_FACE_BASE + tag - 1).v;
 }
 
+bool Group::ImportedFaceIndex(hEntity face, uint32_t *index) const {
+    if(face.group() != h) return false;
+    uint32_t i = face.v & 0xffff;
+    if(i < IMPORT_FACE_BASE) return false;
+    *index = i - IMPORT_FACE_BASE;
+    return true;
+}
+
 // The faces of the imported file, placed by the group's own parameters so they
 // follow the solid when it is moved. Made here rather than with the mesh,
 // because entities are rebuilt on every regeneration and the mesh is not.

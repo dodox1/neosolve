@@ -202,6 +202,7 @@ if(ENABLE_GUI OR ENABLE_CLI)
             occ/occutil.h
             occ/occutil.cpp
             occ/importsolid.cpp
+            occ/importsketch.cpp
             occ/operations.cpp)
     endif()
 

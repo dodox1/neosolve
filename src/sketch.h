@@ -406,6 +406,9 @@ public:
     bool GenerateImportedSolid(Group *srcg);
     void GenerateImportedFaces(EntityList *el);
     uint32_t ImportedFaceHandle(uint32_t tag) const;
+    bool ImportedFaceIndex(hEntity face, uint32_t *index) const;
+    bool ImportedFaceIsFlat(hEntity face) const;
+    void SketchImportedFace(hEntity face) const;
     void GenerateFillet();
     void GenerateChamfer();
     void GenerateShell();

@@ -166,6 +166,8 @@ public:
     // The cached mesh carries index + 1 in meta.face.
     static bool GetCachedFaces(const Platform::Path &path,
                                std::map<uint32_t, FaceInfo> *faces);
+    // One face of an imported file, by the same index.
+    static bool GetCachedFace(const Platform::Path &path, uint32_t index, TopoDS_Face *face);
 
     // Get cached edges directly into SEdgeList - returns false if not cached
     static bool GetCachedEdgesInto(const Platform::Path &path, SEdgeList *sel);

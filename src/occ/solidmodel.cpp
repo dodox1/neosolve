@@ -1120,6 +1120,25 @@ bool SolidModelOcc::GetCachedFaces(const Platform::Path &path,
     return true;
 }
 
+bool SolidModelOcc::GetCachedFace(const Platform::Path &path, uint32_t index,
+                                  TopoDS_Face *face) {
+    TopoDS_Shape shape;
+    {
+        std::lock_guard<std::mutex> lock(importCacheMutex);
+        auto it = importCache.find(path.raw);
+        if(it == importCache.end()) return false;
+        shape = it->second.shape;
+    }
+    uint32_t i = 0;
+    for(TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next(), i++) {
+        if(i == index) {
+            *face = TopoDS::Face(ex.Current());
+            return true;
+        }
+    }
+    return false;
+}
+
 bool SolidModelOcc::GetCachedEdgesInto(const Platform::Path &path, SEdgeList *sel) {
     std::lock_guard<std::mutex> lock(importCacheMutex);
     std::string pathStr = path.raw;

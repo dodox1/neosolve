@@ -630,15 +630,22 @@ void GraphicsWindow::MouseRightUp(double x, double y) {
         Vector facePoint = occFacePoint;
         Vector faceNormal = occFaceNormal;
         hGroup faceGroup = occFaceGroup;
+        hEntity faceEntity = hover.entity;
 
-        menu->AddItem(_("Sketch on Face"), [this, facePoint, faceNormal, faceGroup]() {
+        menu->AddItem(_("Sketch on Face"), [this, facePoint, faceNormal, faceGroup,
+                                            faceEntity]() {
+            bool fromImport = SK.GetGroup(faceGroup)->type == Group::Type::IMPORT_SOLID;
+            if(fromImport && !SK.GetGroup(faceGroup)->ImportedFaceIsFlat(faceEntity)) {
+                Error(_("Sketch on Face needs a flat face. This one is curved, "
+                        "so it has no single plane to sketch in."));
+                return;
+            }
             ClearSelection();
             SS.UndoRemember();
 
             // Try to find a point entity in the same group that lies on this face.
             // Not on an imported solid: its points are the corners of the
             // bounding box, and the sketch would then depend on the import.
-            bool fromImport = SK.GetGroup(faceGroup)->type == Group::Type::IMPORT_SOLID;
             hEntity foundPoint = Entity::NO_ENTITY;
             double bestDist = VERY_POSITIVE;
             for(auto &e : SK.entity) {
@@ -716,6 +723,7 @@ void GraphicsWindow::MouseRightUp(double x, double y) {
             // Set active workplane after regeneration
             gg->activeWorkplane = hg.entity(0);
             gg->Activate();
+            if(fromImport) SK.GetGroup(faceGroup)->SketchImportedFace(faceEntity);
             TextWindow::ScreenSelectGroup(0, hg.v);
             AnimateOntoWorkplane();
         });
