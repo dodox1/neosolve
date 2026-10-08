@@ -179,3 +179,51 @@ TEST_CASE(normal_curved_face_is_refused) {
     // The two holes, the rounded corner and the two ends of the slot.
     CHECK_TRUE(curved >= 5);
 }
+
+// Export 2d Section cuts the solid the active group holds. With the part in
+// union it is in that solid, and the plane of the sketch cuts it halfway up.
+// The section used to be only the flat faces lying in the plane, so a plane
+// through the material gave an empty file.
+TEST_CASE(normal_section_exports) {
+    CHECK_LOAD("normal.slvs");
+    Group *g = ImportGroup();
+    CHECK_TRUE(g != nullptr);
+    g->meshCombine = Group::CombineAs::UNION;
+    SK.GetParam(g->h.param(2))->val = -15;
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+    Group *s = SK.GetGroup(SK.groupOrder[SK.groupOrder.n - 1]);
+    Vector n = Vector::From(0, 0, 1);
+
+    SEdgeList el = {};
+    SBezierList bl = {};
+    CHECK_TRUE(s->MakeOccSectionEdgesInto(n, 0, &el, &bl));
+    CHECK_TRUE(el.l.IsEmpty());
+    CHECK_TRUE(bl.l.n > 0);
+    for(const SBezier &b : bl.l) {
+        for(int i = 0; i <= b.deg; i++) {
+            Vector p = b.ctrl[i];
+            CHECK_TRUE(fabs(p.z) < LENGTH_EPS);
+            CHECK_TRUE(p.x > 100 - LENGTH_EPS && p.x < 110 + LENGTH_EPS);
+            CHECK_TRUE(p.y > -LENGTH_EPS && p.y < 20 + LENGTH_EPS);
+        }
+    }
+    bl.Clear();
+
+    // Without Beziers it comes as line segments, in the same plane.
+    CHECK_TRUE(s->MakeOccSectionEdgesInto(n, 0, &el, nullptr));
+    CHECK_TRUE(el.l.n > 0);
+    for(const SEdge &e : el.l) {
+        CHECK_TRUE(fabs(e.a.z) < LENGTH_EPS && fabs(e.b.z) < LENGTH_EPS);
+    }
+    el.Clear();
+
+    // A plane lying on a face gives that face's outline, which is all the
+    // section used to manage.
+    CHECK_TRUE(s->MakeOccSectionEdgesInto(n, -15, &el, &bl));
+    CHECK_TRUE(bl.l.n > 0);
+    bl.Clear();
+
+    // And a plane above the part cuts nothing.
+    CHECK_TRUE(s->MakeOccSectionEdgesInto(n, 100, &el, &bl));
+    CHECK_TRUE(el.l.IsEmpty() && bl.l.IsEmpty());
+}

@@ -410,6 +410,7 @@ public:
     bool ImportedFaceIsFlat(hEntity face) const;
     void SketchImportedFace(hEntity face) const;
     static void SketchImportedSections(bool rememberForUndo);
+    bool MakeOccSectionEdgesInto(Vector n, double d, SEdgeList *sel, SBezierList *sbl) const;
     void GenerateFillet();
     void GenerateChamfer();
     void GenerateShell();

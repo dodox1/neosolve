@@ -563,6 +563,14 @@ void Group::GenerateSweep() {
     }
 }
 
+// Export 2d Section's way into an OCC solid: true when there is one to cut.
+bool Group::MakeOccSectionEdgesInto(Vector n, double d, SEdgeList *sel,
+                                    SBezierList *sbl) const {
+    if(!runningSolidModel || runningSolidModel->IsEmpty()) return false;
+    runningSolidModel->MakeSectionEdgesInto(n, d, sel, sbl);
+    return true;
+}
+
 } // namespace SolveSpace
 
 #endif // HAVE_OPENCASCADE

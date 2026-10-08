@@ -24,6 +24,7 @@ namespace SolveSpace {
 
 // Forward declaration
 class GraphicsWindow;
+class SBezierList;
 
 class SolidModelOcc {
 public:
@@ -189,6 +190,10 @@ public:
 
     // Get edges for display as SEdgeList
     void MakeEdgesInto(SEdgeList *sel) const;
+
+    // Where the plane n.p = d cuts shapeAcc, as Beziers when sbl is given and
+    // as line segments otherwise, the way SShell::MakeSectionEdgesInto does it.
+    void MakeSectionEdgesInto(Vector n, double d, SEdgeList *sel, SBezierList *sbl) const;
 
     // Find which OCC edges match the selected entities
     // Stores matching edge indices in outEdges

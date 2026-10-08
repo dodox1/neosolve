@@ -80,17 +80,16 @@ void SolveSpaceUI::ExportSectionTo(const Platform::Path &filename) {
     // If there's a mesh, then grab the edges from it.
     g->runningMesh.MakeEdgesInPlaneInto(&el, n, d);
 
-#ifdef HAVE_OPENCASCADE
-    // An OCC solid leaves both the running mesh and the running shell empty,
-    // and the section came out as an empty file with a negative bounding box.
-    if(g->runningMesh.l.IsEmpty() && g->runningShell.surface.IsEmpty()) {
-        g->displayMesh.MakeEdgesInPlaneInto(&el, n, d);
-    }
-#endif
-
     // If there's a shell, then grab the edges and possibly Beziers.
     bool export_as_pwl = SS.exportPwlCurves || fabs(SS.exportOffset) > LENGTH_EPS;
     g->runningShell.MakeSectionEdgesInto(n, d, &el, export_as_pwl ? NULL : &bl);
+
+#ifdef HAVE_OPENCASCADE
+    // An OCC solid leaves both the running mesh and the running shell empty.
+    bool occSolid = g->MakeOccSectionEdgesInto(n, d, &el, export_as_pwl ? NULL : &bl);
+#else
+    bool occSolid = false;
+#endif
 
     // All of these are solid model edges, so use the appropriate style.
     SEdge *se;
@@ -125,7 +124,7 @@ void SolveSpaceUI::ExportSectionTo(const Platform::Path &filename) {
     bl.CullIdenticalBeziers(/*both=*/false);
 
     if(el.l.IsEmpty() && bl.l.IsEmpty()) {
-        if(g->runningShell.surface.IsEmpty()) {
+        if(g->runningShell.surface.IsEmpty() && !occSolid) {
             Error(_("The section plane crosses nothing, so no file was "
                     "written.\n\n"
                     "This model is a triangle mesh, and a section of one is "

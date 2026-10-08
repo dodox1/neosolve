@@ -30,6 +30,10 @@
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Common.hxx>
+#include <BRepAlgoAPI_Section.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <TopExp.hxx>
+#include <gp_Pln.hxx>
 #include <STEPControl_Writer.hxx>
 #include <STEPControl_Reader.hxx>
 #include <BRepTools.hxx>
@@ -610,6 +614,59 @@ int SolidModelOcc::ExtractFaces(bool curvedCentroids) {
     }
 
     return (int)faces.size();
+}
+
+void SolidModelOcc::MakeSectionEdgesInto(Vector n, double d, SEdgeList *sel,
+                                         SBezierList *sbl) const {
+    if(shapeAcc.IsNull()) return;
+    Vector o = n.ScaledBy(d);
+    TopTools_IndexedMapOfShape edges;
+    try {
+        BRepAlgoAPI_Section section(shapeAcc, gp_Pln(gp_Pnt(o.x, o.y, o.z),
+                                                     gp_Dir(n.x, n.y, n.z)),
+                                    Standard_False);
+        section.Approximation(Standard_True);
+        section.Build();
+        if(!section.IsDone()) return;
+        TopExp::MapShapes(section.Shape(), TopAbs_EDGE, edges);
+    } catch(const Standard_Failure &e) {
+        dbp("OCC section failed: %s", e.GetMessageString());
+        return;
+    }
+
+    for(int i = 1; i <= edges.Extent(); i++) {
+        const TopoDS_Edge &e = TopoDS::Edge(edges(i));
+        Vector a = OccUtil::FromOccPoint(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
+               b = OccUtil::FromOccPoint(BRep_Tool::Pnt(TopExp::LastVertex(e)));
+        if(sbl) {
+            std::vector<std::array<gp_Pnt, 4>> pieces;
+            if(OccUtil::EdgeAsCubics(e, &pieces)) {
+                for(const auto &p : pieces) {
+                    SBezier sb = SBezier::From(OccUtil::FromOccPoint(p[0]),
+                                               OccUtil::FromOccPoint(p[1]),
+                                               OccUtil::FromOccPoint(p[2]),
+                                               OccUtil::FromOccPoint(p[3]));
+                    sbl->l.Add(&sb);
+                }
+                continue;
+            }
+            if(BRepAdaptor_Curve(e).GetType() == GeomAbs_Line) {
+                SBezier sb = SBezier::From(a, b);
+                sbl->l.Add(&sb);
+                continue;
+            }
+        }
+        try {
+            BRepAdaptor_Curve curve(e);
+            GCPnts_TangentialDeflection pts(curve, M_PI / 16.0, SS.ExportChordTolMm());
+            for(int j = 2; j <= pts.NbPoints(); j++) {
+                sel->AddEdge(OccUtil::FromOccPoint(pts.Value(j - 1)),
+                             OccUtil::FromOccPoint(pts.Value(j)));
+            }
+        } catch(const Standard_Failure &) {
+            sel->AddEdge(a, b);
+        }
+    }
 }
 
 void SolidModelOcc::MakeEdgesInto(SEdgeList *sel) const {
