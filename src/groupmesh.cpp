@@ -1015,6 +1015,11 @@ void Group::GenerateShellAndMesh() {
 
             runningSolidModel->displayMesh.MakeFromTransformationOf(
                 &thisSolidModel->displayMesh, offset, q, 1.0);
+            // The cached mesh carries face indices, not handles. This copy is
+            // the one a file saves, and the faces are not saved with it.
+            for(STriangle &tr : runningSolidModel->displayMesh.l) {
+                tr.meta.face = 0;
+            }
 
             // Also transform the edges
             runningSolidModel->edges.clear();
@@ -1192,6 +1197,7 @@ void Group::GenerateDisplayItems() {
                         tri.an = q.Rotate(tri.an);
                         tri.bn = q.Rotate(tri.bn);
                         tri.cn = q.Rotate(tri.cn);
+                        tri.meta.face = ImportedFaceHandle(tri.meta.face);
                         cachedTransformedMesh.AddTriangle(&tri);
                         tri.meta.color = color;
                         displayMesh.AddTriangle(&tri);

@@ -370,6 +370,8 @@ bool SolveSpaceUI::SaveToFile(const Platform::Path &filename) {
     }
 
     for(auto &e : SK.entity) {
+        // An imported solid's faces are read from its file on every open.
+        if(e.IsFace() && SK.GetGroup(e.group)->type == Group::Type::IMPORT_SOLID) continue;
         e.CalculateNumerical(/*forExport=*/true);
         sv.e = e;
         SaveUsingTable(filename, 'e');

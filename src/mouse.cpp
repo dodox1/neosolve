@@ -608,7 +608,8 @@ void GraphicsWindow::MouseRightUp(double x, double y) {
     hGroup occFaceGroup = {};
     if(hover.entity.v) {
         Entity *e = SK.entity.FindByIdNoOops(hover.entity);
-        if(e && e->type == Entity::Type::FACE_OCC) {
+        if(e && (e->type == Entity::Type::FACE_OCC ||
+                 (e->IsFace() && SK.GetGroup(e->group)->type == Group::Type::IMPORT_SOLID))) {
             isOccFace = true;
             occFaceGroup = e->group;
             occFacePoint = e->FaceGetPointNum();

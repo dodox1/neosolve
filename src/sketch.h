@@ -404,6 +404,8 @@ public:
     void CreateOccFaceEntities(EntityList *el);
     void PopulateBoundingBoxEntities();
     bool GenerateImportedSolid(Group *srcg);
+    void GenerateImportedFaces(EntityList *el);
+    uint32_t ImportedFaceHandle(uint32_t tag) const;
     void GenerateFillet();
     void GenerateChamfer();
     void GenerateShell();

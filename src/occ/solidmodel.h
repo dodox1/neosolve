@@ -112,8 +112,10 @@ public:
     // Extract edges from shapeAcc for selection/display
     void ExtractEdges();
 
-    // Extract faces from shapeAcc for selection/constraints
-    int ExtractFaces();
+    // Extract faces from shapeAcc for selection/constraints. Without
+    // curvedCentroids a curved face gets the point at the middle of its
+    // parameter range, which costs a hundredth of the true centroid.
+    int ExtractFaces(bool curvedCentroids = true);
 
     // Clear all data
     void Clear();
@@ -160,6 +162,11 @@ public:
     // Get cached bounding box - returns false if not cached
     static bool GetCachedBoundingBox(const Platform::Path &path, Vector *minPt, Vector *maxPt);
 
+    // The faces of an imported file, by index, in the file's own coordinates.
+    // The cached mesh carries index + 1 in meta.face.
+    static bool GetCachedFaces(const Platform::Path &path,
+                               std::map<uint32_t, FaceInfo> *faces);
+
     // Get cached edges directly into SEdgeList - returns false if not cached
     static bool GetCachedEdgesInto(const Platform::Path &path, SEdgeList *sel);
 
@@ -201,6 +208,7 @@ private:
         TopoDS_Shape shape;
         std::unique_ptr<SMesh> displayMesh;
         std::map<uint32_t, EdgeInfo> edges;
+        std::map<uint32_t, FaceInfo> faces;
         Vector bboxMin, bboxMax;
 
         CachedImport() : displayMesh(new SMesh()) {}

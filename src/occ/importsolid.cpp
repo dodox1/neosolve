@@ -119,6 +119,41 @@ static void CreateBoundingBoxEntities(EntityList *el, Vector minPt, Vector maxPt
     newBBoxLine(el, &id, p[3], p[7]);
 }
 
+// Face entities sit at a fixed offset from their index in the file, above what
+// Remap hands out, so nothing about them goes into the saved remap table.
+static const uint32_t IMPORT_FACE_BASE = 0x8000;
+
+uint32_t Group::ImportedFaceHandle(uint32_t tag) const {
+    if(tag == 0 || tag > 0xffff - IMPORT_FACE_BASE) return 0;
+    return h.entity(IMPORT_FACE_BASE + tag - 1).v;
+}
+
+// The faces of the imported file, placed by the group's own parameters so they
+// follow the solid when it is moved. Made here rather than with the mesh,
+// because entities are rebuilt on every regeneration and the mesh is not.
+void Group::GenerateImportedFaces(EntityList *el) {
+    if(linkFile.IsEmpty()) return;
+    std::map<uint32_t, SolidModelOcc::FaceInfo> faces;
+    if(!SolidModelOcc::GetCachedFaces(linkFile, &faces)) return;
+
+    for(const auto &kv : faces) {
+        uint32_t handle = ImportedFaceHandle(kv.first + 1);
+        if(handle == 0) continue;
+
+        Entity en = {};
+        en.type = Entity::Type::FACE_N_ROT_TRANS;
+        en.h.v = handle;
+        en.group = h;
+        en.numPoint = kv.second.point;
+        en.numNormal = Quaternion::From(0, kv.second.normal.x, kv.second.normal.y,
+                                        kv.second.normal.z);
+        for(int i = 0; i < 7; i++) {
+            en.param[i] = h.param(i);
+        }
+        el->Add(&en);
+    }
+}
+
 void Group::PopulateBoundingBoxEntities() {
     if(type != Type::IMPORT_SOLID) return;
     if(linkFile.IsEmpty()) return;

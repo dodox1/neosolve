@@ -543,7 +543,7 @@ void SolidModelOcc::ExtractEdges() {
     }
 }
 
-int SolidModelOcc::ExtractFaces() {
+int SolidModelOcc::ExtractFaces(bool curvedCentroids) {
     faces.clear();
 
     if(shapeAcc.IsNull()) return 0;
@@ -572,12 +572,6 @@ int SolidModelOcc::ExtractFaces() {
             info.entityHandle = 0;
 
             try {
-                // Get face center using mass properties
-                GProp_GProps props;
-                BRepGProp::SurfaceProperties(face, props);
-                gp_Pnt center = props.CentreOfMass();
-                info.point = Vector::From(center.X(), center.Y(), center.Z());
-
                 // Get face normal at center point
                 BRepAdaptor_Surface surface(face);
                 Standard_Real u = (surface.FirstUParameter() + surface.LastUParameter()) / 2.0;
@@ -585,6 +579,14 @@ int SolidModelOcc::ExtractFaces() {
                 gp_Pnt pnt;
                 gp_Vec du, dv;
                 surface.D1(u, v, pnt, du, dv);
+
+                if(curvedCentroids || surface.GetType() == GeomAbs_Plane) {
+                    // Get face center using mass properties
+                    GProp_GProps props;
+                    BRepGProp::SurfaceProperties(face, props);
+                    pnt = props.CentreOfMass();
+                }
+                info.point = Vector::From(pnt.X(), pnt.Y(), pnt.Z());
                 gp_Vec normal = du.Crossed(dv);
                 if(normal.Magnitude() > Precision::Confusion()) {
                     normal.Normalize();
@@ -1058,6 +1060,13 @@ SolidModelOcc SolidModelOcc::ImportCached(const Platform::Path &path, bool *succ
 
     // Triangulate and cache the result if successful
     if(*success) {
+        // Tag each triangle with its face index + 1, which the group turns
+        // into its own face entity when it places the mesh.
+        result.ExtractFaces(/*curvedCentroids=*/false);
+        for(auto &kv : result.faces) {
+            kv.second.entityHandle = kv.first + 1;
+        }
+
         // Triangulate and extract edges before caching (outside lock - this is slow)
         result.Triangulate(OccUtil::DEFAULT_MESH_TOLERANCE);
         result.ExtractEdges();
@@ -1066,6 +1075,8 @@ SolidModelOcc SolidModelOcc::ImportCached(const Platform::Path &path, bool *succ
         cached.shape = result.shape;
         cached.displayMesh->MakeFromCopyOf(&result.displayMesh);
         cached.edges = result.edges;
+        cached.faces = std::move(result.faces);
+        result.faces.clear();
         result.GetBoundingBox(&cached.bboxMin, &cached.bboxMax);
 
         // Add to cache (with lock)
@@ -1098,6 +1109,15 @@ bool SolidModelOcc::GetCachedBoundingBox(const Platform::Path &path, Vector *min
         return true;
     }
     return false;
+}
+
+bool SolidModelOcc::GetCachedFaces(const Platform::Path &path,
+                                   std::map<uint32_t, FaceInfo> *faces) {
+    std::lock_guard<std::mutex> lock(importCacheMutex);
+    auto it = importCache.find(path.raw);
+    if(it == importCache.end()) return false;
+    *faces = it->second.faces;
+    return true;
 }
 
 bool SolidModelOcc::GetCachedEdgesInto(const Platform::Path &path, SEdgeList *sel) {

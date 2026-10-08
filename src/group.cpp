@@ -1124,6 +1124,7 @@ void Group::Generate(EntityList *entity, ParamList *param)
                     h.param(3), h.param(4), h.param(5), h.param(6), NO_PARAM,
                     CopyAs::N_ROT_TRANS);
             }
+            GenerateImportedFaces(entity);
 #endif
             return;
     }
