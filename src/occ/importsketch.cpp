@@ -83,6 +83,21 @@ public:
                                                Entity::NO_ENTITY, hr.entity(0));
         SK.GetConstraint(hc)->ModifyToSatisfy();
     }
+
+    // Counter-clockwise from s to e about the workplane normal. The ends are
+    // locked and the radius dimensioned, which places the centre; locking the
+    // centre as well would be redundant.
+    void Arc(const Vector &c, const Vector &s, const Vector &e) {
+        hRequest hr = SS.GW.AddRequest(Request::Type::ARC_OF_CIRCLE, /*rememberForUndo=*/false);
+        SK.GetEntity(hr.entity(1))->PointForceTo(c);
+        ProcessPoint(hr.entity(2), s);
+        ProcessPoint(hr.entity(3), e);
+        hConstraint hc = Constraint::Constrain(Constraint::Type::DIAMETER, Entity::NO_ENTITY,
+                                               Entity::NO_ENTITY, hr.entity(0));
+        Constraint *r = SK.GetConstraint(hc);
+        r->other = true;
+        r->ModifyToSatisfy();
+    }
 };
 
 bool IsFullCircle(const BRepAdaptor_Curve &c) {
@@ -92,10 +107,10 @@ bool IsFullCircle(const BRepAdaptor_Curve &c) {
 
 }
 
-// Fill the active sketch with the geometry of a face of the import: its lines
-// and circles, then a point at every vertex no curve has taken and at the
-// centre of every arc. Everything is locked where it lies, and the sketch
-// refers to nothing in the import afterwards.
+// Fill the active sketch with the geometry of a face of the import: its lines,
+// circles and arcs, then a point at every vertex no curve has taken. Everything
+// is fixed where it lies, and the sketch refers to nothing in the import
+// afterwards.
 void Group::SketchImportedFace(hEntity face) const {
     TopoDS_Face f;
     if(!FaceOf(this, face, &f)) return;
@@ -108,6 +123,7 @@ void Group::SketchImportedFace(hEntity face) const {
                             SK.GetParam(h.param(4))->val,
                             SK.GetParam(h.param(5))->val,
                             SK.GetParam(h.param(6))->val);
+    Vector normal = SK.GetEntity(SS.GW.ActiveWorkplane())->Normal()->NormalN();
 
     TopTools_IndexedMapOfShape edges;
     TopExp::MapShapes(f, TopAbs_EDGE, edges);
@@ -120,6 +136,22 @@ void Group::SketchImportedFace(hEntity face) const {
                     fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
         } else if(IsFullCircle(c)) {
             fs.Circle(fs.Place(c.Circle().Location()), c.Circle().Radius());
+        } else if(c.GetType() == GeomAbs_Circle) {
+            // The parameter runs counter-clockwise about the circle's axis.
+            Vector s = fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
+                   t = fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))),
+                   centre = fs.Place(c.Circle().Location());
+            gp_Dir a = c.Circle().Axis().Direction();
+            if(fs.q.Rotate(Vector::From(a.X(), a.Y(), a.Z())).Dot(normal) < 0) std::swap(s, t);
+            // A half circle has its centre where moving it changes no radius,
+            // so the solver cannot tell it is placed; two quarters can.
+            if(fabs(c.LastParameter() - c.FirstParameter() - PI) < 0.01) {
+                Vector m = fs.Place(c.Value((c.FirstParameter() + c.LastParameter()) / 2));
+                fs.Arc(centre, s, m);
+                fs.Arc(centre, m, t);
+            } else {
+                fs.Arc(centre, s, t);
+            }
         } else {
             others.push_back(i);
         }
@@ -129,9 +161,6 @@ void Group::SketchImportedFace(hEntity face) const {
         const TopoDS_Edge &e = TopoDS::Edge(edges(i));
         fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))));
         fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
-        BRepAdaptor_Curve c(e);
-        // An arc has no centre of its own, and it is what anyone fits to first.
-        if(c.GetType() == GeomAbs_Circle) fs.Point(fs.Place(c.Circle().Location()));
     }
 }
 

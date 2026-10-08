@@ -61,28 +61,6 @@ Group.remap={
 Group.impFileRel=box.brep
 AddGroup
 
-Group.h.v=00000004
-Group.type=5001
-Group.order=3
-Group.name=sketch-on-face
-Group.activeWorkplane.v=80040000
-Group.color=ff000000
-Group.subtype=6000
-Group.skipFirst=0
-Group.predef.q.w=1.00000000000000000000
-Group.predef.origin.v=00010001
-Group.predef.swapUV=0
-Group.predef.negateU=0
-Group.predef.negateV=0
-Group.visible=1
-Group.suppress=0
-Group.relaxConstraints=0
-Group.allowRedundant=0
-Group.allDimsReference=0
-Group.remap={
-}
-AddGroup
-
 Param.h.v.=00010010
 AddParam
 
