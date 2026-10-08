@@ -30,6 +30,9 @@
 #include <gp_Vec.hxx>
 #include <gp_Dir.hxx>
 
+#include <array>
+#include <vector>
+
 #include "dsc.h"
 
 namespace SolveSpace {
@@ -65,6 +68,13 @@ inline gp_Dir ToOccDir(const Vector &v) {
 #if OCC_VERSION_MAJOR >= 7 && OCC_VERSION_MINOR >= 6
 #define SOLVESPACE_OCC_NEW_API
 #endif
+
+// An edge as cubic Beziers, four poles each, its ends on the edge's vertices.
+// A conic is cut into pieces of at most 45 degrees, which is good to four
+// parts in a million; a spline of degree three or less is split at its knots
+// exactly, and anything else is fitted to a micron. False for a line, or when
+// nothing could be made.
+bool EdgeAsCubics(const TopoDS_Edge &e, std::vector<std::array<gp_Pnt, 4>> *pieces);
 
 // Chord tolerance for triangulation (in mm)
 constexpr double DEFAULT_MESH_TOLERANCE = 0.1;
