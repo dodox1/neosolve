@@ -105,9 +105,11 @@ TEST_CASE(normal_faces_follow_the_placement) {
     CHECK_MESH_NAMES_FACES(g);
 }
 
-// The bottom face lies in the plane of the sketch. It gives its four corners,
-// the centre of the hole and the one vertex OpenCASCADE puts on the hole's rim,
-// each locked, and nothing else.
+// The bottom face lies in the plane of the sketch. It gives four lines meeting
+// at its corners and the circle of the hole, with nothing at the seam vertex
+// OpenCASCADE puts on the circle's rim. The four corners and the centre are
+// locked, the line ends that meet there are coincident, and the sketch has no
+// freedom left without anything redundant.
 TEST_CASE(normal_flat_face_fills_a_sketch) {
     CHECK_LOAD("normal.slvs");
     Group *g = GroupOfType(Group::Type::IMPORT_SOLID);
@@ -123,35 +125,47 @@ TEST_CASE(normal_flat_face_fills_a_sketch) {
     g->SketchImportedFace(hbottom);
     SS.GenerateAll(SolveSpaceUI::Generate::ALL);
 
-    std::vector<Vector> points;
+    int lines = 0, circles = 0, others = 0;
+    std::vector<Vector> ends;
     for(Request &r : SK.request) {
         if(r.group != hs) continue;
-        CHECK_TRUE(r.type == Request::Type::DATUM_POINT);
-        hEntity hp = r.h.entity(0);
-        points.push_back(SK.GetEntity(hp)->PointGetNum());
-        bool locked = false;
-        for(Constraint &c : SK.constraint) {
-            if(c.type == Constraint::Type::WHERE_DRAGGED && c.ptA == hp) locked = true;
+        if(r.type == Request::Type::LINE_SEGMENT) {
+            lines++;
+            ends.push_back(SK.GetEntity(r.h.entity(1))->PointGetNum());
+            ends.push_back(SK.GetEntity(r.h.entity(2))->PointGetNum());
+        } else if(r.type == Request::Type::CIRCLE) {
+            circles++;
+            Entity *c = SK.GetEntity(r.h.entity(0));
+            CHECK_TRUE(SK.GetEntity(c->point[0])->PointGetNum().Equals(Vector::From(105, 10, 0)));
+            CHECK_TRUE(fabs(c->CircleGetRadiusNum() - 2) < LENGTH_EPS);
+        } else {
+            others++;
         }
-        CHECK_TRUE(locked);
     }
-    CHECK_TRUE(points.size() == 6);
+    CHECK_TRUE(lines == 4);
+    CHECK_TRUE(circles == 1);
+    CHECK_TRUE(others == 0);
 
-    Vector centre = Vector::From(105, 10, 0);
     Vector corners[] = { Vector::From(100, 0, 0), Vector::From(110, 0, 0),
-                         Vector::From(100, 20, 0), Vector::From(110, 20, 0), centre };
+                         Vector::From(100, 20, 0), Vector::From(110, 20, 0) };
     for(Vector want : corners) {
-        bool found = false;
-        for(Vector p : points) {
-            if(p.Equals(want)) found = true;
+        int found = 0;
+        for(Vector p : ends) {
+            if(p.Equals(want)) found++;
         }
-        CHECK_TRUE(found);
+        CHECK_TRUE(found == 2);
     }
-    int onRim = 0;
-    for(Vector p : points) {
-        if(fabs(p.Minus(centre).Magnitude() - 2) < LENGTH_EPS) onRim++;
+
+    int locked = 0, coincident = 0, diameters = 0;
+    for(Constraint &c : SK.constraint) {
+        if(c.group != hs) continue;
+        if(c.type == Constraint::Type::WHERE_DRAGGED) locked++;
+        if(c.type == Constraint::Type::POINTS_COINCIDENT) coincident++;
+        if(c.type == Constraint::Type::DIAMETER) diameters++;
     }
-    CHECK_TRUE(onRim == 1);
+    CHECK_TRUE(locked == 5);
+    CHECK_TRUE(coincident == 4);
+    CHECK_TRUE(diameters == 1);
 
     Group *s = SK.GetGroup(hs);
     CHECK_TRUE(s->solved.how == SolveResult::OKAY);

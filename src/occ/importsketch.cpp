@@ -28,48 +28,110 @@ bool Group::ImportedFaceIsFlat(hEntity face) const {
     return BRepAdaptor_Surface(f).GetType() == GeomAbs_Plane;
 }
 
-// Fill the active sketch with the points that define a face of the import:
-// its vertices and the centres of its circles and arcs, each locked where it
-// lies. The sketch refers to nothing in the import afterwards.
+namespace {
+
+// Builds requests in the active sketch, in the shape of the DXF import: the
+// first point at a place is locked, any later one there is made coincident
+// with it, so the sketch ends up with no freedom and no redundancy.
+class FaceSketcher {
+public:
+    Vector offset;
+    Quaternion q;
+    std::vector<std::pair<Vector, hEntity>> points;
+
+    Vector Place(const gp_Pnt &p) const {
+        return q.Rotate(Vector::From(p.X(), p.Y(), p.Z())).Plus(offset);
+    }
+
+    hEntity FindPoint(const Vector &p) const {
+        for(const auto &have : points) {
+            if(have.first.Equals(p)) return have.second;
+        }
+        return Entity::NO_ENTITY;
+    }
+
+    void ProcessPoint(hEntity he, const Vector &p) {
+        SK.GetEntity(he)->PointForceTo(p);
+        hEntity have = FindPoint(p);
+        if(have != Entity::NO_ENTITY) {
+            Constraint::ConstrainCoincident(he, have);
+            return;
+        }
+        Constraint::Constrain(Constraint::Type::WHERE_DRAGGED, he,
+                              Entity::NO_ENTITY, Entity::NO_ENTITY);
+        points.emplace_back(p, he);
+    }
+
+    void Point(const Vector &p) {
+        if(FindPoint(p) != Entity::NO_ENTITY) return;
+        hRequest hr = SS.GW.AddRequest(Request::Type::DATUM_POINT, /*rememberForUndo=*/false);
+        ProcessPoint(hr.entity(0), p);
+    }
+
+    void Line(const Vector &p0, const Vector &p1) {
+        if(p0.Equals(p1)) return;
+        hRequest hr = SS.GW.AddRequest(Request::Type::LINE_SEGMENT, /*rememberForUndo=*/false);
+        ProcessPoint(hr.entity(1), p0);
+        ProcessPoint(hr.entity(2), p1);
+    }
+
+    void Circle(const Vector &c, double r) {
+        hRequest hr = SS.GW.AddRequest(Request::Type::CIRCLE, /*rememberForUndo=*/false);
+        ProcessPoint(hr.entity(1), c);
+        SK.GetEntity(hr.entity(64))->DistanceForceTo(r);
+        hConstraint hc = Constraint::Constrain(Constraint::Type::DIAMETER, Entity::NO_ENTITY,
+                                               Entity::NO_ENTITY, hr.entity(0));
+        SK.GetConstraint(hc)->ModifyToSatisfy();
+    }
+};
+
+bool IsFullCircle(const BRepAdaptor_Curve &c) {
+    return c.GetType() == GeomAbs_Circle &&
+           fabs(c.LastParameter() - c.FirstParameter() - 2 * PI) < LENGTH_EPS;
+}
+
+}
+
+// Fill the active sketch with the geometry of a face of the import: its lines
+// and circles, then a point at every vertex no curve has taken and at the
+// centre of every arc. Everything is locked where it lies, and the sketch
+// refers to nothing in the import afterwards.
 void Group::SketchImportedFace(hEntity face) const {
     TopoDS_Face f;
     if(!FaceOf(this, face, &f)) return;
 
-    Vector offset = Vector::From(SK.GetParam(h.param(0))->val,
-                                 SK.GetParam(h.param(1))->val,
-                                 SK.GetParam(h.param(2))->val);
-    Quaternion q = Quaternion::From(SK.GetParam(h.param(3))->val,
-                                    SK.GetParam(h.param(4))->val,
-                                    SK.GetParam(h.param(5))->val,
-                                    SK.GetParam(h.param(6))->val);
+    FaceSketcher fs = {};
+    fs.offset = Vector::From(SK.GetParam(h.param(0))->val,
+                             SK.GetParam(h.param(1))->val,
+                             SK.GetParam(h.param(2))->val);
+    fs.q = Quaternion::From(SK.GetParam(h.param(3))->val,
+                            SK.GetParam(h.param(4))->val,
+                            SK.GetParam(h.param(5))->val,
+                            SK.GetParam(h.param(6))->val);
 
-    std::vector<Vector> points;
-    auto add = [&](const gp_Pnt &p) {
-        Vector v = q.Rotate(Vector::From(p.X(), p.Y(), p.Z())).Plus(offset);
-        for(const Vector &have : points) {
-            if(have.Equals(v)) return;
-        }
-        points.push_back(v);
-    };
-
-    TopTools_IndexedMapOfShape vertices, edges;
-    TopExp::MapShapes(f, TopAbs_VERTEX, vertices);
+    TopTools_IndexedMapOfShape edges;
     TopExp::MapShapes(f, TopAbs_EDGE, edges);
-    for(int i = 1; i <= vertices.Extent(); i++) {
-        add(BRep_Tool::Pnt(TopoDS::Vertex(vertices(i))));
-    }
-    // A circle in OpenCASCADE has one vertex on its rim and no centre, while
-    // the centre of a hole is the first thing anyone wants to fit to.
+    std::vector<int> others;
     for(int i = 1; i <= edges.Extent(); i++) {
-        BRepAdaptor_Curve c(TopoDS::Edge(edges(i)));
-        if(c.GetType() == GeomAbs_Circle) add(c.Circle().Location());
+        const TopoDS_Edge &e = TopoDS::Edge(edges(i));
+        BRepAdaptor_Curve c(e);
+        if(c.GetType() == GeomAbs_Line) {
+            fs.Line(fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
+                    fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
+        } else if(IsFullCircle(c)) {
+            fs.Circle(fs.Place(c.Circle().Location()), c.Circle().Radius());
+        } else {
+            others.push_back(i);
+        }
     }
 
-    for(const Vector &p : points) {
-        hRequest hr = SS.GW.AddRequest(Request::Type::DATUM_POINT, /*rememberForUndo=*/false);
-        SK.GetEntity(hr.entity(0))->PointForceTo(p);
-        Constraint::Constrain(Constraint::Type::WHERE_DRAGGED, hr.entity(0),
-                              Entity::NO_ENTITY, Entity::NO_ENTITY);
+    for(int i : others) {
+        const TopoDS_Edge &e = TopoDS::Edge(edges(i));
+        fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))));
+        fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
+        BRepAdaptor_Curve c(e);
+        // An arc has no centre of its own, and it is what anyone fits to first.
+        if(c.GetType() == GeomAbs_Circle) fs.Point(fs.Place(c.Circle().Location()));
     }
 }
 
