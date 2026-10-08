@@ -635,10 +635,14 @@ void GraphicsWindow::MouseRightUp(double x, double y) {
             ClearSelection();
             SS.UndoRemember();
 
-            // Try to find a point entity in the same group that lies on this face
+            // Try to find a point entity in the same group that lies on this face.
+            // Not on an imported solid: its points are the corners of the
+            // bounding box, and the sketch would then depend on the import.
+            bool fromImport = SK.GetGroup(faceGroup)->type == Group::Type::IMPORT_SOLID;
             hEntity foundPoint = Entity::NO_ENTITY;
             double bestDist = VERY_POSITIVE;
             for(auto &e : SK.entity) {
+                if(fromImport) break;
                 if(e.group != faceGroup) continue;
                 if(!e.IsPoint()) continue;
 
