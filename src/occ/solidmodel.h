@@ -166,6 +166,7 @@ public:
     // The cached mesh carries index + 1 in meta.face.
     static bool GetCachedFaces(const Platform::Path &path,
                                std::map<uint32_t, FaceInfo> *faces);
+    static bool GetCachedShape(const Platform::Path &path, TopoDS_Shape *shape);
     // One face of an imported file, by the same index.
     static bool GetCachedFace(const Platform::Path &path, uint32_t index, TopoDS_Face *face);
 

@@ -47,8 +47,10 @@ double OffEllipse(Vector p, double sy) {
 }
 
 // Turned half a turn about x, the part has y and z negated, and every circle's
-// axis points against the sketch normal instead of along it.
-void CheckFillsASketch(Test::Helper *helper, bool turned) {
+// axis points against the sketch normal instead of along it. Sectioned, the part
+// is moved so the sketch plane cuts it halfway up, where the leaning hole has
+// already left through its side.
+void CheckFillsASketch(Test::Helper *helper, bool turned, bool section) {
     double sy = turned ? -1 : 1;
     CHECK_LOAD("normal.slvs");
     Group *g = ImportGroup();
@@ -56,8 +58,11 @@ void CheckFillsASketch(Test::Helper *helper, bool turned) {
     if(turned) {
         SK.GetParam(g->h.param(3))->val = 0;
         SK.GetParam(g->h.param(4))->val = 1;
-        SS.GenerateAll(SolveSpaceUI::Generate::ALL);
     }
+    if(section) {
+        SK.GetParam(g->h.param(2))->val = -15 * sy;
+    }
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
     hGroup hs = SK.groupOrder[SK.groupOrder.n - 1];
 
     Entity *bottom = FaceFacing(g, Vector::From(0, 0, -sy));
@@ -66,7 +71,11 @@ void CheckFillsASketch(Test::Helper *helper, bool turned) {
 
     SS.GW.activeGroup = hs;
     SK.GetGroup(hs)->Activate();
-    g->SketchImportedFace(hbottom);
+    if(section) {
+        Group::SketchImportedSections(/*rememberForUndo=*/false);
+    } else {
+        g->SketchImportedFace(hbottom);
+    }
     SS.GenerateAll(SolveSpaceUI::Generate::ALL);
 
     // Everything that was drawn is placed, and nothing twice over.
@@ -121,18 +130,42 @@ void CheckFillsASketch(Test::Helper *helper, bool turned) {
     CHECK_TRUE(circles == 1);
     CHECK_TRUE(fillets == 1);
     CHECK_TRUE(slotArcs >= 4);
-    CHECK_TRUE(cubics == 8);
+    CHECK_TRUE(cubics == (section ? 0 : 8));
     CHECK_TRUE(others == 0);
 }
 
 }
 
 TEST_CASE(normal_flat_face_fills_a_sketch) {
-    CheckFillsASketch(helper, /*turned=*/false);
+    CheckFillsASketch(helper, /*turned=*/false, /*section=*/false);
 }
 
 TEST_CASE(normal_turned_face_fills_a_sketch) {
-    CheckFillsASketch(helper, /*turned=*/true);
+    CheckFillsASketch(helper, /*turned=*/true, /*section=*/false);
+}
+
+TEST_CASE(normal_section_fills_a_sketch) {
+    CheckFillsASketch(helper, /*turned=*/false, /*section=*/true);
+}
+
+TEST_CASE(normal_turned_section_fills_a_sketch) {
+    CheckFillsASketch(helper, /*turned=*/true, /*section=*/true);
+}
+
+// A plane that misses the part adds nothing.
+TEST_CASE(normal_section_that_cuts_nothing) {
+    CHECK_LOAD("normal.slvs");
+    Group *g = ImportGroup();
+    CHECK_TRUE(g != nullptr);
+    SK.GetParam(g->h.param(2))->val = 100;
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+    hGroup hs = SK.groupOrder[SK.groupOrder.n - 1];
+    SS.GW.activeGroup = hs;
+    SK.GetGroup(hs)->Activate();
+    Group::SketchImportedSections(/*rememberForUndo=*/false);
+    for(Request &r : SK.request) {
+        CHECK_TRUE(r.group != hs);
+    }
 }
 
 TEST_CASE(normal_curved_face_is_refused) {

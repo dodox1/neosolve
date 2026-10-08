@@ -157,6 +157,10 @@ const MenuEntry Menu[] = {
 { 1, N_("&Fillet at Point"),            Command::TANGENT_ARC,      S|'a',   KN, mReq   },
 { 1, N_("Cha&mfer at Point"),           Command::CHAMFER,          S|'m',   KN, mReq   },
 { 1, N_("Split Curves at &Intersection"), Command::SPLIT_CURVES,   'i',     KN, mReq   },
+#ifdef HAVE_OPENCASCADE
+{ 1, NULL,                              Command::NONE,             0,       KN, NULL   },
+{ 1, N_("Section of Imported Solids"),  Command::SECTION_IMPORTS,  0,       KN, mReq   },
+#endif
 
 { 0, N_("&Constrain"),                  Command::NONE,             0,       KN, mCon   },
 { 1, N_("&Distance / Diameter"),        Command::DISTANCE_DIA,     'd',     KN, mCon   },
@@ -1576,6 +1580,12 @@ c:
         case Command::SPLIT_CURVES:
             SS.GW.SplitLinesOrCurves();
             break;
+
+#ifdef HAVE_OPENCASCADE
+        case Command::SECTION_IMPORTS:
+            Group::SketchImportedSections(/*rememberForUndo=*/true);
+            break;
+#endif
 
         default: ssassert(false, "Unexpected menu ID");
     }

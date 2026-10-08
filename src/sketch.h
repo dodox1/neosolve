@@ -409,6 +409,7 @@ public:
     bool ImportedFaceIndex(hEntity face, uint32_t *index) const;
     bool ImportedFaceIsFlat(hEntity face) const;
     void SketchImportedFace(hEntity face) const;
+    static void SketchImportedSections(bool rememberForUndo);
     void GenerateFillet();
     void GenerateChamfer();
     void GenerateShell();

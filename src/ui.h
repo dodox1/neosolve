@@ -146,6 +146,7 @@ enum class Command : uint32_t {
     TTF_TEXT,
     IMAGE,
     SPLIT_CURVES,
+    SECTION_IMPORTS,
     TANGENT_ARC,
     CHAMFER,
     CONSTRUCTION,

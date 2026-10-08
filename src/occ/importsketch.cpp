@@ -1,12 +1,14 @@
 //-----------------------------------------------------------------------------
-// Taking geometry out of an imported solid into a sketch, where it becomes
-// ordinary requests that can be constrained to and built on.
+// Taking geometry out of an imported solid into a sketch, from one of its faces
+// or from where a workplane cuts it, as ordinary requests that can be
+// constrained to and built on.
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
 #include "occ/solidmodel.h"
 
 #ifdef HAVE_OPENCASCADE
 
+#include <BRepAlgoAPI_Section.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRep_Tool.hxx>
@@ -16,6 +18,7 @@
 #include <Geom_BSplineCurve.hxx>
 #include <Precision.hxx>
 #include <gp_Elips.hxx>
+#include <gp_Pln.hxx>
 #include <array>
 #include <TopExp.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
@@ -40,7 +43,7 @@ namespace {
 // Builds requests in the active sketch, in the shape of the DXF import: the
 // first point at a place is locked, any later one there is made coincident
 // with it, so the sketch ends up with no freedom and no redundancy.
-class FaceSketcher {
+class EdgeSketcher {
 public:
     Vector offset;
     Quaternion q;
@@ -190,52 +193,52 @@ bool IsFullCircle(const BRepAdaptor_Curve &c) {
            fabs(c.LastParameter() - c.FirstParameter() - 2 * PI) < LENGTH_EPS;
 }
 
+// The import's placement, which takes the file's coordinates into the model's.
+EdgeSketcher SketcherFor(const Group *g) {
+    EdgeSketcher fs = {};
+    fs.offset = Vector::From(SK.GetParam(g->h.param(0))->val,
+                             SK.GetParam(g->h.param(1))->val,
+                             SK.GetParam(g->h.param(2))->val);
+    fs.q = Quaternion::From(SK.GetParam(g->h.param(3))->val,
+                            SK.GetParam(g->h.param(4))->val,
+                            SK.GetParam(g->h.param(5))->val,
+                            SK.GetParam(g->h.param(6))->val);
+    return fs;
 }
 
-// Fill the active sketch with the geometry of a face of the import: its lines,
-// circles and arcs, then a point at every vertex no curve has taken. Everything
-// is fixed where it lies, and the sketch refers to nothing in the import
-// afterwards.
-void Group::SketchImportedFace(hEntity face) const {
-    TopoDS_Face f;
-    if(!FaceOf(this, face, &f)) return;
-
-    FaceSketcher fs = {};
-    fs.offset = Vector::From(SK.GetParam(h.param(0))->val,
-                             SK.GetParam(h.param(1))->val,
-                             SK.GetParam(h.param(2))->val);
-    fs.q = Quaternion::From(SK.GetParam(h.param(3))->val,
-                            SK.GetParam(h.param(4))->val,
-                            SK.GetParam(h.param(5))->val,
-                            SK.GetParam(h.param(6))->val);
+// Draw the edges of a shape into the active sketch: lines, circles and arcs,
+// then everything else as cubics, and a point at the ends of anything that
+// could not be drawn. Everything is fixed where it lies, and the sketch refers
+// to nothing in the import afterwards.
+void SketchEdges(EdgeSketcher *fs, const TopoDS_Shape &shape) {
     Vector normal = SK.GetEntity(SS.GW.ActiveWorkplane())->Normal()->NormalN();
 
     TopTools_IndexedMapOfShape edges;
-    TopExp::MapShapes(f, TopAbs_EDGE, edges);
+    TopExp::MapShapes(shape, TopAbs_EDGE, edges);
     std::vector<int> others;
     for(int i = 1; i <= edges.Extent(); i++) {
         const TopoDS_Edge &e = TopoDS::Edge(edges(i));
         BRepAdaptor_Curve c(e);
         if(c.GetType() == GeomAbs_Line) {
-            fs.Line(fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
-                    fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
+            fs->Line(fs->Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
+                     fs->Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
         } else if(IsFullCircle(c)) {
-            fs.Circle(fs.Place(c.Circle().Location()), c.Circle().Radius());
+            fs->Circle(fs->Place(c.Circle().Location()), c.Circle().Radius());
         } else if(c.GetType() == GeomAbs_Circle) {
             // The parameter runs counter-clockwise about the circle's axis.
-            Vector s = fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
-                   t = fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))),
-                   centre = fs.Place(c.Circle().Location());
+            Vector s = fs->Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
+                   t = fs->Place(BRep_Tool::Pnt(TopExp::LastVertex(e))),
+                   centre = fs->Place(c.Circle().Location());
             gp_Dir a = c.Circle().Axis().Direction();
-            if(fs.q.Rotate(Vector::From(a.X(), a.Y(), a.Z())).Dot(normal) < 0) std::swap(s, t);
+            if(fs->q.Rotate(Vector::From(a.X(), a.Y(), a.Z())).Dot(normal) < 0) std::swap(s, t);
             // A half circle has its centre where moving it changes no radius,
             // so the solver cannot tell it is placed; two quarters can.
             if(fabs(c.LastParameter() - c.FirstParameter() - PI) < 0.01) {
-                Vector m = fs.Place(c.Value((c.FirstParameter() + c.LastParameter()) / 2));
-                fs.Arc(centre, s, m);
-                fs.Arc(centre, m, t);
+                Vector m = fs->Place(c.Value((c.FirstParameter() + c.LastParameter()) / 2));
+                fs->Arc(centre, s, m);
+                fs->Arc(centre, m, t);
             } else {
-                fs.Arc(centre, s, t);
+                fs->Arc(centre, s, t);
             }
         } else {
             others.push_back(i);
@@ -244,9 +247,74 @@ void Group::SketchImportedFace(hEntity face) const {
 
     for(int i : others) {
         const TopoDS_Edge &e = TopoDS::Edge(edges(i));
-        if(fs.Curve(e)) continue;
-        fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))));
-        fs.Point(fs.Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
+        if(fs->Curve(e)) continue;
+        fs->Point(fs->Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))));
+        fs->Point(fs->Place(BRep_Tool::Pnt(TopExp::LastVertex(e))));
+    }
+}
+
+// Where the active workplane cuts an import's solid, in the file's own
+// coordinates, as edges. Empty when it cuts nothing.
+TopoDS_Shape SectionOf(const Group *g) {
+    TopoDS_Shape shape;
+    if(!SolidModelOcc::GetCachedShape(g->linkFile, &shape)) return TopoDS_Shape();
+
+    EdgeSketcher fs = SketcherFor(g);
+    Entity *wp = SK.GetEntity(SS.GW.ActiveWorkplane());
+    Quaternion back = fs.q.Inverse();
+    Vector o = back.Rotate(wp->WorkplaneGetOffset().Minus(fs.offset)),
+           n = back.Rotate(wp->Normal()->NormalN());
+    try {
+        BRepAlgoAPI_Section section(shape, gp_Pln(gp_Pnt(o.x, o.y, o.z), gp_Dir(n.x, n.y, n.z)),
+                                    Standard_False);
+        section.Approximation(Standard_True);
+        section.Build();
+        if(!section.IsDone()) return TopoDS_Shape();
+        TopTools_IndexedMapOfShape edges;
+        TopExp::MapShapes(section.Shape(), TopAbs_EDGE, edges);
+        if(edges.Extent() == 0) return TopoDS_Shape();
+        return section.Shape();
+    } catch(const Standard_Failure &) {
+        return TopoDS_Shape();
+    }
+}
+
+}
+
+void Group::SketchImportedFace(hEntity face) const {
+    TopoDS_Face f;
+    if(!FaceOf(this, face, &f)) return;
+
+    EdgeSketcher fs = SketcherFor(this);
+    SketchEdges(&fs, f);
+}
+
+// Cut every imported solid before the active group with its workplane, and
+// draw what the cut leaves into the sketch.
+void Group::SketchImportedSections(bool rememberForUndo) {
+    if(!SS.GW.LockedInWorkplane()) {
+        Error(_("Section of Imported Solids cuts with the workplane of the "
+                "sketch, so it needs a sketch in a workplane."));
+        return;
+    }
+
+    std::vector<std::pair<Group *, TopoDS_Shape>> cuts;
+    for(hGroup hg : SK.groupOrder) {
+        if(hg == SS.GW.activeGroup) break;
+        Group *g = SK.GetGroup(hg);
+        if(g->type != Type::IMPORT_SOLID || g->suppress) continue;
+        TopoDS_Shape cut = SectionOf(g);
+        if(!cut.IsNull()) cuts.emplace_back(g, cut);
+    }
+    if(cuts.empty()) {
+        Error(_("The workplane of this sketch does not cut any imported solid."));
+        return;
+    }
+
+    if(rememberForUndo) SS.UndoRemember();
+    for(auto &cut : cuts) {
+        EdgeSketcher fs = SketcherFor(cut.first);
+        SketchEdges(&fs, cut.second);
     }
 }
 
