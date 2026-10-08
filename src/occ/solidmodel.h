@@ -114,8 +114,7 @@ public:
     void ExtractEdges();
 
     // Extract faces from shapeAcc for selection/constraints. Without
-    // curvedCentroids a curved face gets the point at the middle of its
-    // parameter range, which costs a hundredth of the true centroid.
+    // curvedCentroids a curved face gets the middle of its parameter range.
     int ExtractFaces(bool curvedCentroids = true);
 
     // Clear all data

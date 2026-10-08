@@ -136,9 +136,8 @@ bool Group::ImportedFaceIndex(hEntity face, uint32_t *index) const {
     return true;
 }
 
-// The faces of the imported file, placed by the group's own parameters so they
-// follow the solid when it is moved. Made here rather than with the mesh,
-// because entities are rebuilt on every regeneration and the mesh is not.
+// Placed by the group's own parameters, so they follow the solid. Made here and
+// not with the mesh, because entities are rebuilt on every regeneration.
 void Group::GenerateImportedFaces(EntityList *el) {
     if(linkFile.IsEmpty()) return;
     std::map<uint32_t, SolidModelOcc::FaceInfo> faces;

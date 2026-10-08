@@ -87,9 +87,8 @@ public:
         SK.GetConstraint(hc)->ModifyToSatisfy();
     }
 
-    // Counter-clockwise from s to e about the workplane normal. The ends are
-    // locked and the radius dimensioned, which places the centre; locking the
-    // centre as well would be redundant.
+    // Counter-clockwise from s to e. The ends and the radius place the centre;
+    // locking it as well would be redundant.
     void Arc(const Vector &c, const Vector &s, const Vector &e) {
         hRequest hr = SS.GW.AddRequest(Request::Type::ARC_OF_CIRCLE, /*rememberForUndo=*/false);
         SK.GetEntity(hr.entity(1))->PointForceTo(c);
@@ -142,10 +141,8 @@ EdgeSketcher SketcherFor(const Group *g) {
     return fs;
 }
 
-// Draw the edges of a shape into the active sketch: lines, circles and arcs,
-// then everything else as cubics, and a point at the ends of anything that
-// could not be drawn. Everything is fixed where it lies, and the sketch refers
-// to nothing in the import afterwards.
+// Lines, circles and arcs, then everything else as cubics, and points where
+// nothing could be drawn. All fixed where they lie.
 void SketchEdges(EdgeSketcher *fs, const TopoDS_Shape &shape) {
     Vector normal = SK.GetEntity(SS.GW.ActiveWorkplane())->Normal()->NormalN();
 
