@@ -222,8 +222,8 @@ void Group::SketchImportedFace(hEntity face) const {
     SketchEdges(&fs, f);
 }
 
-// Cut every imported solid before the active group with its workplane, and
-// draw what the cut leaves into the sketch.
+// Cut every shown imported solid before the active group with its workplane,
+// and draw what the cut leaves into the sketch.
 void Group::SketchImportedSections(bool rememberForUndo) {
     if(!SS.GW.LockedInWorkplane()) {
         Error(_("Section of Imported Solids cuts with the workplane of the "
@@ -235,7 +235,7 @@ void Group::SketchImportedSections(bool rememberForUndo) {
     for(hGroup hg : SK.groupOrder) {
         if(hg == SS.GW.activeGroup) break;
         Group *g = SK.GetGroup(hg);
-        if(g->type != Type::IMPORT_SOLID || g->suppress) continue;
+        if(g->type != Type::IMPORT_SOLID || g->suppress || !g->visible) continue;
         TopoDS_Shape cut = SectionOf(g);
         if(!cut.IsNull()) cuts.emplace_back(g, cut);
     }

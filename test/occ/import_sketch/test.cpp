@@ -227,3 +227,20 @@ TEST_CASE(normal_section_exports) {
     CHECK_TRUE(s->MakeOccSectionEdgesInto(n, 100, &el, &bl));
     CHECK_TRUE(el.l.IsEmpty() && bl.l.IsEmpty());
 }
+
+// A hidden import is not cut; the section takes what is on screen.
+TEST_CASE(normal_section_skips_a_hidden_import) {
+    CHECK_LOAD("normal.slvs");
+    Group *g = ImportGroup();
+    CHECK_TRUE(g != nullptr);
+    SK.GetParam(g->h.param(2))->val = -15;
+    g->visible = false;
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+    hGroup hs = SK.groupOrder[SK.groupOrder.n - 1];
+    SS.GW.activeGroup = hs;
+    SK.GetGroup(hs)->Activate();
+    Group::SketchImportedSections(/*rememberForUndo=*/false);
+    for(Request &r : SK.request) {
+        CHECK_TRUE(r.group != hs);
+    }
+}
