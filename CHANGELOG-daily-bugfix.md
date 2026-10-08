@@ -35,6 +35,17 @@ Unreleased
   had to remove the one you already use. It is neosolve and neosolve-cli now,
   with its own resources, desktop entry and icons, and the solver library as
   libnslvs. A .slvs still offers both programs to open it. Reported as issue #2.
+* A missing imported STEP can be located, the way a missing linked sketch can.
+  It used to be dropped without asking, the sketch built on it was deleted with
+  everything after it, and saving made that permanent.
+* Regenerate All reads an imported STEP again, so a changed file shows up
+  without reopening the model.
+* A failed import says why. A .step written by Export 3d Wireframe holds no
+  solid, and the message now says so instead of only that it failed.
+* A fillet, chamfer, shell, loft or sweep that OpenCASCADE builds broken is
+  marked: the bad faces show as naked edges and the group says so. It used to
+  report success and hand on an invalid solid. A slightly different size often
+  goes through.
 
 daily-2026-09-30
 ----------------
