@@ -20,8 +20,8 @@ every one loads, regenerates and renders, and the ones that still come out
 invalid are invalid in upstream SolveSpace too.
 
 STEP export works for OpenCASCADE models, which it did not before, and so do the
-mesh and 2d exports. Section export is the weak one, see `Known limits`, and so
-is keeping a fillet on the same edges after you edit an earlier sketch.
+mesh and 2d exports, the section included. The weak spot is keeping a fillet on
+the same edges after you edit an earlier sketch, see `Known limits`.
 
 Unreleased
 ----------
@@ -49,6 +49,13 @@ Unreleased
 * Changing an angle a long way, 60 degrees to 30, no longer leaves the sketch
   unsolved with its points thrown far apart. Taken from SolveSpace, their
   #1247.
+* The faces of an imported STEP can be clicked, and Sketch on Face fills a
+  sketch with the face's outline as ordinary lines, arcs and curves you can
+  dimension against. It used to offer only a box around the part.
+* Sketch -> Section of Imported Solids cuts the visible imports with the active
+  workplane and drops the section into the sketch.
+* Export 2d Section cuts through an OpenCASCADE solid. It used to give only the
+  outline of a face lying in the plane, and an empty file anywhere else.
 
 daily-2026-09-30
 ----------------
@@ -137,9 +144,12 @@ daily-2026-09-30
 Known limits
 ------------
 
-* **Export 2d Section is barely usable on an OpenCASCADE solid.** It returns the
-  outline of a flat face lying in the chosen plane, and nothing else. A plane
-  through material writes an empty file; it just tells you now.
+* **Export 2d Section cuts the OpenCASCADE part of a model only.** A helix or a
+  linked part is included only where it has a face lying in the plane, as in
+  SolveSpace.
+* **A STEP with several bodies imports as one.** They share one placement and
+  the faces of one can hide another's. Split the file beforehand if you need
+  them apart.
 * **Fillet and chamfer edges are stored by position**, so editing an earlier
   group can move them or make the bevel fail. Pick them again if it does. Faces
   are safe.
