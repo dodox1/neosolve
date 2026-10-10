@@ -12,8 +12,11 @@
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRep_Tool.hxx>
+#include <ElCLib.hxx>
 #include <gp_Pln.hxx>
+#include <Precision.hxx>
 #include <TopExp.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 #include <TopoDS.hxx>
 
@@ -141,6 +144,98 @@ EdgeSketcher SketcherFor(const Group *g) {
     return fs;
 }
 
+// An arc from vertex vs to vt, counter-clockwise about the circle's axis; a half
+// circle as two quarters, whose centre the solver can place.
+void SketchArc(EdgeSketcher *fs, Vector normal, const gp_Circ &circ, double from, double to,
+               const TopoDS_Vertex &vs, const TopoDS_Vertex &vt) {
+    auto at = [&](double a) { return fs->Place(ElCLib::Value(a, circ)); };
+    Vector centre = fs->Place(circ.Location()),
+           s = fs->Place(BRep_Tool::Pnt(vs)), t = fs->Place(BRep_Tool::Pnt(vt));
+    gp_Dir a = circ.Axis().Direction();
+    bool against = fs->q.Rotate(Vector::From(a.X(), a.Y(), a.Z())).Dot(normal) < 0;
+    if(against) std::swap(s, t);
+    if(fabs(to - from - PI) < 0.01) {
+        Vector m = at((from + to) / 2);
+        fs->Arc(centre, s, m);
+        fs->Arc(centre, m, t);
+    } else {
+        fs->Arc(centre, s, t);
+    }
+}
+
+// Arcs of one circle that meet end to end, where no other edge meets them,
+// become one arc, or the circle when they go all the way round, as a hole split
+// into quarters or halves does. Their indices go into done.
+void SketchJoinedArcs(EdgeSketcher *fs, Vector normal, const TopoDS_Shape &shape,
+                      const TopTools_IndexedMapOfShape &edges, std::vector<bool> *done) {
+    TopTools_IndexedDataMapOfShapeListOfShape edgesAt;
+    TopExp::MapShapesAndAncestors(shape, TopAbs_VERTEX, TopAbs_EDGE, edgesAt);
+
+    for(int i = 1; i <= edges.Extent(); i++) {
+        BRepAdaptor_Curve ci(TopoDS::Edge(edges(i)));
+        if((*done)[i] || ci.GetType() != GeomAbs_Circle || IsFullCircle(ci)) continue;
+        gp_Circ circ = ci.Circle();
+
+        // Each arc counter-clockwise about this circle's axis.
+        struct Piece { int index; double start, span; TopoDS_Vertex vs, vt; };
+        std::vector<Piece> pieces;
+        for(int j = i; j <= edges.Extent(); j++) {
+            const TopoDS_Edge &e = TopoDS::Edge(edges(j));
+            BRepAdaptor_Curve cj(e);
+            if((*done)[j] || cj.GetType() != GeomAbs_Circle || IsFullCircle(cj)) continue;
+            gp_Circ other = cj.Circle();
+            if(other.Location().Distance(circ.Location()) > LENGTH_EPS ||
+               fabs(other.Radius() - circ.Radius()) > LENGTH_EPS ||
+               !other.Axis().IsParallel(circ.Axis(), Precision::Angular())) continue;
+            bool along = other.Axis().Direction().Dot(circ.Axis().Direction()) > 0;
+            TopoDS_Vertex v0 = TopExp::FirstVertex(e), v1 = TopExp::LastVertex(e);
+            if(!along) std::swap(v0, v1);
+            double start = ElCLib::Parameter(circ, BRep_Tool::Pnt(v0));
+            pieces.push_back({ j, start, cj.LastParameter() - cj.FirstParameter(), v0, v1 });
+        }
+        if(pieces.size() < 2) continue;
+        std::sort(pieces.begin(), pieces.end(),
+                  [](const Piece &a, const Piece &b) { return a.start < b.start; });
+
+        // A piece runs on where it ends in the next one's start and nothing
+        // else meets there; with no break they close into the circle.
+        size_t n = pieces.size();
+        auto runsOn = [&](size_t k) {
+            const TopoDS_Vertex &v = pieces[k].vt;
+            return v.IsSame(pieces[(k + 1) % n].vs) && edgesAt.FindFromKey(v).Extent() == 2;
+        };
+        size_t first = n;
+        for(size_t k = 0; k < n; k++) {
+            if(!runsOn(k)) {
+                first = (k + 1) % n;
+                break;
+            }
+        }
+        if(first == n) {
+            fs->Circle(fs->Place(circ.Location()), circ.Radius());
+            for(const Piece &p : pieces) {
+                (*done)[p.index] = true;
+            }
+            continue;
+        }
+        for(size_t k = 0; k < n;) {
+            size_t len = 1;
+            while(len < n && runsOn((first + k + len - 1) % n)) len++;
+            if(len > 1) {
+                const Piece &p = pieces[(first + k) % n],
+                            &last = pieces[(first + k + len - 1) % n];
+                double span = 0;
+                for(size_t m = 0; m < len; m++) {
+                    span += pieces[(first + k + m) % n].span;
+                    (*done)[pieces[(first + k + m) % n].index] = true;
+                }
+                SketchArc(fs, normal, circ, p.start, p.start + span, p.vs, last.vt);
+            }
+            k += len;
+        }
+    }
+}
+
 // Lines, circles and arcs, then everything else as cubics, and points where
 // nothing could be drawn. All fixed where they lie.
 void SketchEdges(EdgeSketcher *fs, const TopoDS_Shape &shape) {
@@ -148,8 +243,11 @@ void SketchEdges(EdgeSketcher *fs, const TopoDS_Shape &shape) {
 
     TopTools_IndexedMapOfShape edges;
     TopExp::MapShapes(shape, TopAbs_EDGE, edges);
+    std::vector<bool> done(edges.Extent() + 1, false);
+    SketchJoinedArcs(fs, normal, shape, edges, &done);
     std::vector<int> others;
     for(int i = 1; i <= edges.Extent(); i++) {
+        if(done[i]) continue;
         const TopoDS_Edge &e = TopoDS::Edge(edges(i));
         BRepAdaptor_Curve c(e);
         if(c.GetType() == GeomAbs_Line) {
@@ -159,20 +257,8 @@ void SketchEdges(EdgeSketcher *fs, const TopoDS_Shape &shape) {
             fs->Circle(fs->Place(c.Circle().Location()), c.Circle().Radius());
         } else if(c.GetType() == GeomAbs_Circle) {
             // The parameter runs counter-clockwise about the circle's axis.
-            Vector s = fs->Place(BRep_Tool::Pnt(TopExp::FirstVertex(e))),
-                   t = fs->Place(BRep_Tool::Pnt(TopExp::LastVertex(e))),
-                   centre = fs->Place(c.Circle().Location());
-            gp_Dir a = c.Circle().Axis().Direction();
-            if(fs->q.Rotate(Vector::From(a.X(), a.Y(), a.Z())).Dot(normal) < 0) std::swap(s, t);
-            // A half circle has its centre where moving it changes no radius,
-            // so the solver cannot tell it is placed; two quarters can.
-            if(fabs(c.LastParameter() - c.FirstParameter() - PI) < 0.01) {
-                Vector m = fs->Place(c.Value((c.FirstParameter() + c.LastParameter()) / 2));
-                fs->Arc(centre, s, m);
-                fs->Arc(centre, m, t);
-            } else {
-                fs->Arc(centre, s, t);
-            }
+            SketchArc(fs, normal, c.Circle(), c.FirstParameter(), c.LastParameter(),
+                      TopExp::FirstVertex(e), TopExp::LastVertex(e));
         } else {
             others.push_back(i);
         }

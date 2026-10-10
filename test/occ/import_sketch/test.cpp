@@ -244,3 +244,124 @@ TEST_CASE(normal_section_skips_a_hidden_import) {
         CHECK_TRUE(r.group != hs);
     }
 }
+
+// split.brep is a cylinder of radius 7.5 extruded here, so its round edges come
+// in quarters, as on any part neosolve exports. A hole drawn as four arcs is
+// awkward to use, so each circle has to come back whole.
+static void CheckSplitCircle(Test::Helper *helper, bool section) {
+    CHECK_LOAD("split.slvs");
+    Group *g = ImportGroup();
+    CHECK_TRUE(g != nullptr);
+    if(section) {
+        SK.GetParam(g->h.param(2))->val = -10;
+    }
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+    hGroup hs = SK.groupOrder[SK.groupOrder.n - 1];
+
+    Entity *bottom = FaceFacing(g, Vector::From(0, 0, -1));
+    CHECK_TRUE(bottom != nullptr);
+    hEntity hbottom = bottom->h;
+
+    SS.GW.activeGroup = hs;
+    SK.GetGroup(hs)->Activate();
+    if(section) {
+        Group::SketchImportedSections(/*rememberForUndo=*/false);
+    } else {
+        g->SketchImportedFace(hbottom);
+    }
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+
+    Group *s = SK.GetGroup(hs);
+    CHECK_TRUE(s->solved.how == SolveResult::OKAY);
+    CHECK_TRUE(s->solved.dof == 0);
+
+    int circles = 0, others = 0;
+    for(Request &r : SK.request) {
+        if(r.group != hs) continue;
+        if(r.type == Request::Type::CIRCLE) {
+            circles++;
+            CHECK_TRUE(fabs(SK.GetEntity(r.h.entity(0))->CircleGetRadiusNum() - 7.5) < LENGTH_EPS);
+        } else {
+            others++;
+        }
+    }
+    CHECK_TRUE(circles == 1);
+    CHECK_TRUE(others == 0);
+}
+
+TEST_CASE(split_face_circle_comes_back_whole) {
+    CheckSplitCircle(helper, /*section=*/false);
+}
+
+TEST_CASE(split_section_circle_comes_back_whole) {
+    CheckSplitCircle(helper, /*section=*/true);
+}
+
+// joined.brep is a 20 x 20 plate with its corner at (20, 20) rounded r=5 by two
+// arcs of 45 degrees, placed 100 along x. Arcs of one circle that meet end to
+// end have to come back as one arc, bulging the way the corner does. loose.brep
+// is the same with its vertices 2e-5 off the curves, as other CAD writes them;
+// the arc must still meet the lines, five corners locked and no more.
+static void CheckJoinedArcs(Test::Helper *helper, const char *file, bool section) {
+    double tol = strcmp(file, "loose.slvs") == 0 ? 1e-4 : LENGTH_EPS;
+    CHECK_LOAD(file);
+    Group *g = ImportGroup();
+    CHECK_TRUE(g != nullptr);
+    if(section) {
+        SK.GetParam(g->h.param(2))->val = -2.5;
+    }
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+    hGroup hs = SK.groupOrder[SK.groupOrder.n - 1];
+
+    Entity *bottom = FaceFacing(g, Vector::From(0, 0, -1));
+    CHECK_TRUE(bottom != nullptr);
+    hEntity hbottom = bottom->h;
+
+    SS.GW.activeGroup = hs;
+    SK.GetGroup(hs)->Activate();
+    if(section) {
+        Group::SketchImportedSections(/*rememberForUndo=*/false);
+    } else {
+        g->SketchImportedFace(hbottom);
+    }
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+
+    Group *s = SK.GetGroup(hs);
+    CHECK_TRUE(s->solved.how == SolveResult::OKAY);
+    CHECK_TRUE(s->solved.dof == 0);
+
+    int lines = 0, arcs = 0, others = 0, locked = 0;
+    for(Request &r : SK.request) {
+        if(r.group != hs) continue;
+        Entity *e = SK.GetEntity(r.h.entity(0));
+        if(r.type == Request::Type::LINE_SEGMENT) {
+            lines++;
+        } else if(r.type == Request::Type::ARC_OF_CIRCLE) {
+            arcs++;
+            CHECK_TRUE(fabs(e->CircleGetRadiusNum() - 5) < tol);
+            Vector want = Vector::From(115, 15, 0).Plus(Vector::From(1, 1, 0).WithMagnitude(5));
+            CHECK_TRUE(ArcMiddle(e).Equals(want, tol));
+        } else {
+            others++;
+        }
+    }
+    for(Constraint &c : SK.constraint) {
+        if(c.group == hs && c.type == Constraint::Type::WHERE_DRAGGED) locked++;
+    }
+    CHECK_TRUE(lines == 4);
+    CHECK_TRUE(arcs == 1);
+    CHECK_TRUE(others == 0);
+    CHECK_TRUE(locked == 5);
+}
+
+TEST_CASE(joined_face_arcs_come_back_as_one) {
+    CheckJoinedArcs(helper, "joined.slvs", /*section=*/false);
+}
+
+TEST_CASE(joined_section_arcs_come_back_as_one) {
+    CheckJoinedArcs(helper, "joined.slvs", /*section=*/true);
+}
+
+TEST_CASE(loose_face_arc_meets_its_lines) {
+    CheckJoinedArcs(helper, "loose.slvs", /*section=*/false);
+}
