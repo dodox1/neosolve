@@ -172,4 +172,8 @@ Known limits
   using only extrude, lathe and revolve open there normally.
 * **Exports are not reproducible**; the tessellation is threaded. Set
   `OMP_NUM_THREADS=1` if you need the same bytes twice.
+* **A sketch that used to solve after changing an angle can occasionally fail
+  now.** The solver change taken for SolveSpace #1247 helps more sketches than
+  it hurts, but the one from their #1105 no longer goes from 35 degrees to 20
+  or 5. Upstream SolveSpace behaves the same.
 * **The test suite fails 15 checks**, eleven of them one cause. See issue #13.
