@@ -46,6 +46,9 @@ Unreleased
   marked: the bad faces show as naked edges and the group says so. It used to
   report success and hand on an invalid solid. A slightly different size often
   goes through.
+* Changing an angle a long way, 60 degrees to 30, no longer leaves the sketch
+  unsolved with its points thrown far apart. Taken from SolveSpace, their
+  #1247.
 
 daily-2026-09-30
 ----------------
