@@ -144,16 +144,10 @@ static int CmdResave(const std::string &filename) {
 // way to get at what the program actually meshes rather than a copy of it.
 static int CmdBrep(const std::string &filename, const std::string &out, int groupIndex) {
 #ifdef HAVE_OPENCASCADE
-    SS.Init();
-    SS.showToolbar = false;
-    SS.checkClosedContour = false;
-
-    Platform::Path path = Platform::Path::From(filename).Expand(/*fromCurrentDirectory=*/true);
-    if(!SS.LoadFromFile(path)) {
+    if(!LoadSketch(filename)) {
         fprintf(stderr, "cannot load: %s\n", filename.c_str());
         return 1;
     }
-    SS.AfterNewFile();
 
     Group *g = SK.GetGroup(SS.GW.activeGroup);
     if(groupIndex > 0 && groupIndex <= SK.groupOrder.n) {
