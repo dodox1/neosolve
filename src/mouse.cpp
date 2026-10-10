@@ -667,12 +667,17 @@ void GraphicsWindow::MouseRightUp(double x, double y) {
                 // Found a point on the face - use it
                 hpt = foundPoint;
             } else {
-                // No point found - create a datum point at face center
-                hRequest hr = AddRequest(Request::Type::DATUM_POINT, /*rememberForUndo=*/false);
-                Request *req = SK.GetRequest(hr);
-                req->construction = true;
-                req->workplane = Entity::FREE_IN_3D;
-                hpt = hr.entity(0);
+                // No point found - create a datum point at face center, free in
+                // 3d so the active workplane does not flatten it.
+                Request r = {};
+                r.group = fromImport ? faceGroup : activeGroup;
+                r.type = Request::Type::DATUM_POINT;
+                r.workplane = Entity::FREE_IN_3D;
+                r.construction = true;
+                SK.request.AddAndAssignId(&r);
+                r.Generate(&SK.entity, &SK.param);
+                SS.MarkGroupDirty(r.group);
+                hpt = r.h.entity(0);
                 SK.GetEntity(hpt)->PointForceTo(facePoint);
             }
 
