@@ -84,6 +84,7 @@ if(USE_OPENCASCADE)
     list(APPEND testsuite_SOURCES
         occ/extrude_hole/test.cpp
         occ/extrude_two_sided/test.cpp
+        occ/face_entities/test.cpp
         occ/revolve_two_sided/test.cpp
         occ/pick_circular_edge/test.cpp
         occ/import_faces/test.cpp

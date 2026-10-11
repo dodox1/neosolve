@@ -282,6 +282,8 @@ public:
     // that acts on it is still compiled only where OCC is available.
     SolidModelOcc  *thisSolidModel = nullptr;
     SolidModelOcc  *runningSolidModel = nullptr;
+    // Made FACE_OCC entities, to be made again when a regeneration skips it.
+    bool            occFaceEntities = false;
 
     // For fillet/chamfer operations: indices of selected edges
     std::vector<uint32_t> selectedEdges;

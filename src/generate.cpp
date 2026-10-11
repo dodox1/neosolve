@@ -325,6 +325,11 @@ void SolveSpaceUI::GenerateAll(Generate type, bool andFindFree, bool genForBBox)
                     Param *prevp = prev.FindByIdNoOops(newp->h);
                     if(prevp) newp->known = true;
                 }
+#ifdef HAVE_OPENCASCADE
+                // The mesh still names its faces, so they have to exist.
+                Group *g = SK.GetGroup(hg);
+                if(g->occFaceEntities) g->CreateOccFaceEntities(&SK.entity);
+#endif
             }
         }
     }

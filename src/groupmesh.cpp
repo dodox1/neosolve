@@ -276,6 +276,7 @@ void Group::GenerateShellAndMesh() {
     bool prevBooleanFailed = booleanFailed;
     booleanFailed = false;
     occError.clear();
+    occFaceEntities = false;
 
     Group *srcg = this;
 
@@ -1413,6 +1414,7 @@ bool Group::IsUsedAsSweepPath() const {
 #ifdef HAVE_OPENCASCADE
 void Group::CreateOccFaceEntities(EntityList *el) {
     if(!runningSolidModel) return;
+    occFaceEntities = true;
 
     // Update the entity handles in the faces map to use proper FACE_OCC entities
     for(auto &kv : runningSolidModel->faces) {
