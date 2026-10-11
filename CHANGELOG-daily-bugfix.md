@@ -56,6 +56,11 @@ Unreleased
   workplane and drops the section into the sketch.
 * Export 2d Section cuts through an OpenCASCADE solid. It used to give only the
   outline of a face lying in the plane, and an empty file anywhere else.
+* Faces stay pickable after editing a sketch that follows an extrude, and past
+  a group whose solid is suppressed. A suppressed import is hidden everywhere,
+  not only from the first extrude on.
+* Undoing the deletion of a sketch keeps it in its workplane. It used to switch
+  to drawing in 3d, which SolveSpace does too.
 
 daily-2026-09-30
 ----------------
