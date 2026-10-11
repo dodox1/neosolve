@@ -1113,7 +1113,8 @@ void SolveSpaceUI::MenuHelp(Command id) {
             Message(_(
 "This is neosolve version %s (%s), a fork of SolveSpace.\n"
 "\n"
-"For more information, see https://github.com/0xSeren/neosolve\n"
+"neosolve was started by 0xSeren, https://github.com/0xSeren/neosolve\n"
+"This build comes from https://github.com/dodox1/neosolve\n"
 "SolveSpace itself is at http://solvespace.com/\n"
 "\n"
 "neosolve is free software: you are free to modify\n"

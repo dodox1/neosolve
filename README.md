@@ -6,6 +6,8 @@
 
 **neosolve** is an enhanced fork of [SolveSpace](https://solvespace.com), the parametric 2D/3D CAD tool. It integrates OpenCASCADE for modern solid modeling operations while preserving SolveSpace's lightweight, constraint-based workflow.
 
+neosolve was started by [0xSeren](https://github.com/0xSeren/neosolve). This repository carries its `daily-bugfix` branch, with further fixes and features; see `CHANGELOG-daily-bugfix.md`.
+
 ## Why neosolve?
 
 SolveSpace's native geometric kernel is a remarkable piece of engineering - lean, educational, and fully self-contained. It demonstrates that you don't need a massive dependency to do real CAD work. We believe this kernel has a good reason to exist and deserves continued development.
