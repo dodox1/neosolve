@@ -1075,9 +1075,14 @@ void Group::GenerateDisplayItems() {
             } else {
                 hasOwnGeometry = (thisSolidModel && !thisSolidModel->IsEmpty());
             }
+            // Suppressed, it is drawn nowhere, as a suppressed extrude is not.
+            if(suppress) hasOwnGeometry = false;
         }
 #endif
-        if(pg && !hasOwnGeometry) {
+        if(!pg && !hasOwnGeometry && type == Type::IMPORT_SOLID) {
+            displayMesh.Clear();
+            displayOutlines.Clear();
+        } else if(pg && !hasOwnGeometry) {
             // We don't contribute any new solid model in this group, so our
             // display items are identical to the previous group's; which means
             // that we can just display those, and stop ourselves from

@@ -365,3 +365,21 @@ TEST_CASE(joined_section_arcs_come_back_as_one) {
 TEST_CASE(loose_face_arc_meets_its_lines) {
     CheckJoinedArcs(helper, "loose.slvs", /*section=*/false);
 }
+
+// Suppressed, the import is drawn in neither its group nor the sketch after
+// it, as a suppressed extrude is not; its faces stay for what is built on them.
+TEST_CASE(normal_suppressed_import_is_drawn_nowhere) {
+    CHECK_LOAD("normal.slvs");
+    Group *g = ImportGroup();
+    CHECK_TRUE(g != nullptr);
+    g->suppress = true;
+    SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+
+    for(hGroup hg : SK.groupOrder) {
+        Group *gi = SK.GetGroup(hg);
+        gi->GenerateDisplayItems();
+        CHECK_TRUE(gi->displayMesh.l.n == 0);
+        CHECK_TRUE(gi->solved.how == SolveResult::OKAY);
+    }
+    CHECK_TRUE(FaceFacing(ImportGroup(), Vector::From(0, 0, -1)) != nullptr);
+}
