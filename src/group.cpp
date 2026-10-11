@@ -110,6 +110,25 @@ static bool CaptureSelection(Group *prevg, Group *g) {
 
 #endif
 
+// Find the axes of a workplane on a face. Use the axes of the nearest xy, yz
+// or zx plane, projected into the face. Then v points in the same direction
+// as in that plane.
+Quaternion Group::FaceOrientation(Vector normal) {
+    if(normal.Magnitude() < LENGTH_EPS) return Quaternion::From(1, 0, 0, 0);
+    Vector n = normal.WithMagnitude(1);
+    Vector up;
+    if(fabs(n.z) >= fabs(n.x) && fabs(n.z) >= fabs(n.y)) {
+        up = Vector::From(0, 1, 0);
+    } else if(fabs(n.x) >= fabs(n.y)) {
+        up = Vector::From(0, 0, 1);
+    } else {
+        up = Vector::From(1, 0, 0);
+    }
+    Vector v = up.Minus(n.ScaledBy(n.Dot(up))).WithMagnitude(1);
+    Vector u = v.Cross(n).WithMagnitude(1);
+    return Quaternion::From(u, v);
+}
+
 void Group::MenuGroup(Command id)  {
     MenuGroup(id, Platform::Path());
 }
@@ -201,15 +220,7 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
                 // For OCC faces, use WORKPLANE_BY_POINT_ORTHO since they're dynamically generated
                 if(faceEntity->type == Entity::Type::FACE_OCC) {
                     g.subtype = Subtype::WORKPLANE_BY_POINT_ORTHO;
-                    if(faceNormal.Magnitude() > LENGTH_EPS) {
-                        Vector n = faceNormal.WithMagnitude(1);
-                        Vector arbitrary = (fabs(n.x) < 0.9) ? Vector::From(1, 0, 0) : Vector::From(0, 1, 0);
-                        Vector u = arbitrary.Cross(n).WithMagnitude(1);
-                        Vector v = n.Cross(u).WithMagnitude(1);
-                        g.predef.q = Quaternion::From(u, v);
-                    } else {
-                        g.predef.q = Quaternion::From(1, 0, 0, 0);
-                    }
+                    g.predef.q = FaceOrientation(faceNormal);
                     g.predef.origin = gs.point[0];
                 } else {
                     g.subtype = Subtype::WORKPLANE_BY_POINT_FACE;
@@ -261,15 +272,7 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
                 }
 
                 g.subtype = Subtype::WORKPLANE_BY_POINT_ORTHO;
-                if(faceNormal.Magnitude() > LENGTH_EPS) {
-                    Vector n = faceNormal.WithMagnitude(1);
-                    Vector arbitrary = (fabs(n.x) < 0.9) ? Vector::From(1, 0, 0) : Vector::From(0, 1, 0);
-                    Vector u = arbitrary.Cross(n).WithMagnitude(1);
-                    Vector v = n.Cross(u).WithMagnitude(1);
-                    g.predef.q = Quaternion::From(u, v);
-                } else {
-                    g.predef.q = Quaternion::From(1, 0, 0, 0);
-                }
+                g.predef.q = FaceOrientation(faceNormal);
             } else {
                 Error(_("Bad selection for new sketch in workplane. This "
                         "group can be created with:\n\n"

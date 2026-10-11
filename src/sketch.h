@@ -447,6 +447,7 @@ public:
 
     SPolygon GetPolygon();
 
+    static Quaternion FaceOrientation(Vector normal);
     static void MenuGroup(Command id);
     static void MenuGroup(Command id, Platform::Path linkFile);
 };

@@ -688,18 +688,7 @@ void GraphicsWindow::MouseRightUp(double x, double y) {
             g.subtype = Group::Subtype::WORKPLANE_BY_POINT_ORTHO;
             g.name = C_("group-name", "sketch-on-face");
 
-            // Create the workplane orientation from the face normal
-            // We need u (X axis) and v (Y axis) such that u × v = faceNormal
-            if(faceNormal.Magnitude() > LENGTH_EPS) {
-                Vector n = faceNormal.WithMagnitude(1);
-                // Find a vector not parallel to the normal to construct u
-                Vector arbitrary = (fabs(n.x) < 0.9) ? Vector::From(1, 0, 0) : Vector::From(0, 1, 0);
-                Vector u = arbitrary.Cross(n).WithMagnitude(1);  // X axis, perpendicular to normal
-                Vector v = n.Cross(u).WithMagnitude(1);          // Y axis, perpendicular to both
-                g.predef.q = Quaternion::From(u, v);
-            } else {
-                g.predef.q = Quaternion::From(1, 0, 0, 0);
-            }
+            g.predef.q = Group::FaceOrientation(faceNormal);
 
             // Reference the datum point we just created
             g.predef.origin = hpt;
