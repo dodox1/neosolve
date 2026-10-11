@@ -261,14 +261,21 @@ void Group::MenuGroup(Command id, Platform::Path linkFile) {
                     // Found a point on the face - use it as origin
                     g.predef.origin = foundPoint;
                 } else {
-                    // No point found - create a datum point at face center
+                    // No point found. Make a datum point at the face center. Make
+                    // it free in 3d, so that the active workplane does not move it
+                    // into its plane.
                     SS.GW.ClearSelection();
-                    hRequest hr = SS.GW.AddRequest(Request::Type::DATUM_POINT, /*rememberForUndo=*/false);
-                    Request *req = SK.GetRequest(hr);
-                    req->construction = true;
-                    req->workplane = Entity::FREE_IN_3D;
-                    SK.GetEntity(hr.entity(0))->PointForceTo(facePoint);
-                    g.predef.origin = hr.entity(0);
+                    Request r = {};
+                    bool fromImport = SK.GetGroup(faceGroup)->type == Type::IMPORT_SOLID;
+                    r.group = fromImport ? faceGroup : SS.GW.activeGroup;
+                    r.type = Request::Type::DATUM_POINT;
+                    r.workplane = Entity::FREE_IN_3D;
+                    r.construction = true;
+                    SK.request.AddAndAssignId(&r);
+                    r.Generate(&SK.entity, &SK.param);
+                    SS.MarkGroupDirty(r.group);
+                    SK.GetEntity(r.h.entity(0))->PointForceTo(facePoint);
+                    g.predef.origin = r.h.entity(0);
                 }
 
                 g.subtype = Subtype::WORKPLANE_BY_POINT_ORTHO;
