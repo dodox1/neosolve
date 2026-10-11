@@ -129,11 +129,12 @@ void SolveSpaceUI::PopOntoCurrentFrom(UndoStack *uk) {
     *ut = {};
 
     // And reset the state everywhere else in the program, since the
-    // sketch just changed a lot.
-    SS.GW.ClearSuper();
-    SS.TW.ClearSuper();
+    // sketch just changed a lot. Regenerate first, ClearSuper checks the
+    // active workplane exists.
     SS.ReloadAllLinked(SS.saveFile);
     SS.GenerateAll(SolveSpaceUI::Generate::ALL);
+    SS.GW.ClearSuper();
+    SS.TW.ClearSuper();
     SS.ScheduleShowTW();
 
     // Activate the group that was active before.
