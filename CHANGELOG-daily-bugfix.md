@@ -61,6 +61,14 @@ Unreleased
   not only from the first extrude on.
 * Undoing the deletion of a sketch keeps it in its workplane. It used to switch
   to drawing in 3d, which SolveSpace does too.
+* An imported STEP set to assemble is a reference: shown and pickable in every
+  later group, never merged into your part, and exported beside it unless
+  suppressed. It used to vanish at the first extrude. Sketch on Face always
+  draws its outline.
+* A sketch on a face takes its axes from the way the part lies, so a bottom
+  face no longer draws x upwards and a side face is not turned a quarter.
+* Sketch in New Workplane on a selected face puts the plane on the face from
+  any group.
 
 daily-2026-09-30
 ----------------
@@ -152,6 +160,9 @@ Known limits
 * **Export 2d Section cuts the OpenCASCADE part of a model only.** A helix or a
   linked part is included only where it has a face lying in the plane, as in
   SolveSpace.
+* **A section plane lying exactly on a face** draws that face's outline along
+  with the cut, including edges between faces in that plane. Move the plane
+  slightly to get a clean section.
 * **A STEP with several bodies imports as one.** They share one placement and
   the faces of one can hide another's. Split the file beforehand if you need
   them apart.
