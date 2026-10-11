@@ -406,9 +406,19 @@ bool SolveSpaceUI::SaveToFile(const Platform::Path &filename) {
 #endif
     for(i = 0; i < m->l.n; i++) {
         STriangle *tr = &(m->l[i]);
+        uint32_t face = tr->meta.face;
+#ifdef HAVE_OPENCASCADE
+        // An imported solid's faces are not saved, so neither are their handles.
+        hEntity hf = { face };
+        uint32_t index;
+        Group *fg = SK.group.FindByIdNoOops(hf.group());
+        if(fg && fg->type == Group::Type::IMPORT_SOLID && fg->ImportedFaceIndex(hf, &index)) {
+            face = 0;
+        }
+#endif
         fprintf(fh, "Triangle %08x %08x "
                 "%.20f %.20f %.20f  %.20f %.20f %.20f  %.20f %.20f %.20f\n",
-            tr->meta.face, tr->meta.color.ToPackedInt(),
+            face, tr->meta.color.ToPackedInt(),
             CO(tr->a), CO(tr->b), CO(tr->c));
     }
 
