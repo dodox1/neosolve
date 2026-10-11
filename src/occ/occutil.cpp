@@ -16,6 +16,7 @@
 #include <Precision.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp.hxx>
+#include <TopoDS_Vertex.hxx>
 #include <cmath>
 
 namespace SolveSpace {
