@@ -2,7 +2,7 @@
 
 <img src="res/freedesktop/solvespace-scalable.svg" width="70" height="70" alt="neosolve Logo" align="left">
 
-[![Build Status](https://github.com/0xSeren/neosolve/workflows/CD/badge.svg)](https://github.com/0xSeren/neosolve/actions)
+[![Build Status](https://github.com/dodox1/neosolve/actions/workflows/test.yml/badge.svg?branch=daily-bugfix)](https://github.com/dodox1/neosolve/actions)
 
 **neosolve** is an enhanced fork of [SolveSpace](https://solvespace.com), the parametric 2D/3D CAD tool. It integrates OpenCASCADE for modern solid modeling operations while preserving SolveSpace's lightweight, constraint-based workflow.
 
@@ -64,16 +64,14 @@ We encourage users who prefer a dependency-free experience to use upstream Solve
 
 ### Pre-built Packages
 
-Pre-built packages for **Windows**, **Linux**, and **macOS** are available from [GitHub Releases](https://github.com/0xSeren/neosolve/releases).
-
-Download the appropriate package for your platform and run the installer or extract the archive.
+Windows builds of the `daily-bugfix` branch are in [GitHub Releases](https://github.com/dodox1/neosolve/releases): extract the zip and run `solvespace.exe`. On Arch Linux, install `neosolve-daily-git` from the AUR. For other systems, build from source as below.
 
 ### Building from Source
 
 Clone the repository with submodules:
 
 ```sh
-git clone https://github.com/0xSeren/neosolve
+git clone -b daily-bugfix https://github.com/dodox1/neosolve
 cd neosolve
 git submodule update --init
 ```
@@ -118,7 +116,8 @@ sudo make install
 
 ### Arch Linux
 
-A PKGBUILD is provided in `pkg/arch/`:
+The AUR package `neosolve-daily-git` builds the `daily-bugfix` branch. A PKGBUILD
+is also provided in `pkg/arch/`:
 
 ```sh
 cd pkg/arch
@@ -168,7 +167,7 @@ The application is built as `build/bin/SolveSpace.app`.
 3. Clone and build:
 
 ```bat
-git clone https://github.com/0xSeren/neosolve
+git clone -b daily-bugfix https://github.com/dodox1/neosolve
 cd neosolve
 git submodule update --init
 mkdir build
@@ -196,7 +195,7 @@ For documentation on SolveSpace's core features, see the [SolveSpace reference m
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for code style and contribution guidelines.
 
-Bug reports and feature requests are welcome on the [GitHub issue tracker](https://github.com/0xSeren/neosolve/issues).
+Bug reports and feature requests are welcome on the [GitHub issue tracker](https://github.com/dodox1/neosolve/issues).
 
 ## License
 
