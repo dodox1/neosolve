@@ -317,6 +317,17 @@ public:
     Quaternion      cachedQuat;
     bool            cachedMeshValid;
 
+    // An import set to assemble is a reference. Later groups show it next to
+    // their solid, but it is not part of the solid. These are its mesh and
+    // edges at its position. They are not saved.
+    struct {
+        SMesh           mesh;
+        SOutlineList    outlines;
+        Vector          offset;
+        Quaternion      q;
+        bool            valid;
+    }               reference;
+
     enum class CombineAs : uint32_t {
         UNION           = 0,
         DIFFERENCE      = 1,
@@ -402,6 +413,7 @@ public:
     template<class T> void GenerateForStepAndRepeat(T *steps, T *outs, Group::CombineAs forWhat);
     template<class T> void GenerateForBoolean(T *a, T *b, T *o, Group::CombineAs how);
     void GenerateDisplayItems();
+    void ReferencesShown(std::vector<Group *> *refs, bool exported = false) const;
 #ifdef HAVE_OPENCASCADE
     void CreateOccFaceEntities(EntityList *el);
     void PopulateBoundingBoxEntities();
@@ -410,6 +422,11 @@ public:
     uint32_t ImportedFaceHandle(uint32_t tag) const;
     bool ImportedFaceIndex(hEntity face, uint32_t *index) const;
     bool ImportedFaceIsFlat(hEntity face) const;
+    bool IsReference() const;
+    void UpdateReference();
+    bool ShapeWithReferences(SolidModelOcc *out) const;
+    bool MakeReferenceSectionEdgesInto(Vector n, double d, SEdgeList *sel,
+                                       SBezierList *sbl) const;
     void SketchImportedFace(hEntity face) const;
     static void SketchImportedSections(bool rememberForUndo);
     bool MakeOccSectionEdgesInto(Vector n, double d, SEdgeList *sel, SBezierList *sbl) const;

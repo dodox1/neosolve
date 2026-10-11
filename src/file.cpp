@@ -1162,6 +1162,7 @@ void SolveSpaceUI::ReloadImportedSolids() {
         if(g.thisSolidModel) g.thisSolidModel->Clear();
         g.impEntity.Clear();
         g.cachedMeshValid = false;
+        g.reference.valid = false;
         g.displayDirty = true;
     }
 #endif

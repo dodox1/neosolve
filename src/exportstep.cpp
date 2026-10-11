@@ -640,10 +640,13 @@ void StepFileWriter::ExportSurfacesTo(const Platform::Path &filename) {
     SShell *shell = &(g->runningShell);
 
 #ifdef HAVE_OPENCASCADE
-    // Extrude, lathe and revolve build a TopoDS_Shape and leave runningShell
-    // empty, so without this there is nothing here to write out.
-    if(g->runningSolidModel && !g->runningSolidModel->IsEmpty()) {
-        if(g->runningSolidModel->ExportSTEP(filename)) return;
+    // Extrude, lathe and revolve make a TopoDS_Shape and keep runningShell
+    // empty. Write that shape and the references as separate solids. A part
+    // with only native shells goes to the writer below, without the references.
+    bool occSolid = g->runningSolidModel && !g->runningSolidModel->IsEmpty();
+    SolidModelOcc solid;
+    if((occSolid || shell->surface.IsEmpty()) && g->ShapeWithReferences(&solid)) {
+        if(solid.ExportSTEP(filename)) return;
         Error("Could not write the solid to a STEP file.");
         return;
     }

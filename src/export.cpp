@@ -18,7 +18,9 @@ void SolveSpaceUI::ExportSectionTo(const Platform::Path &filename) {
 
     Group *g = SK.GetGroup(SS.GW.activeGroup);
     g->GenerateDisplayItems();
-    if(g->displayMesh.IsEmpty()) {
+    std::vector<Group *> refs;
+    g->ReferencesShown(&refs, /*exported=*/true);
+    if(g->displayMesh.IsEmpty() && refs.empty()) {
         Error(_("No solid model present; draw one with extrudes and revolves, "
                 "or use Export 2d View to export bare lines and curves."));
         return;
@@ -87,6 +89,8 @@ void SolveSpaceUI::ExportSectionTo(const Platform::Path &filename) {
 #ifdef HAVE_OPENCASCADE
     // An OCC solid leaves both the running mesh and the running shell empty.
     bool occSolid = g->MakeOccSectionEdgesInto(n, d, &el, export_as_pwl ? NULL : &bl);
+    occSolid = g->MakeReferenceSectionEdgesInto(n, d, &el, export_as_pwl ? NULL : &bl) ||
+               occSolid;
 #else
     bool occSolid = false;
 #endif
@@ -221,11 +225,20 @@ void SolveSpaceUI::ExportViewOrWireframeTo(const Platform::Path &filename, bool 
     SS.exportMode = true;
     GenerateAll(Generate::ALL);
 
+    // Export the references with the solid.
+    Group *ag = SK.GetGroup(SS.GW.activeGroup);
+    ag->GenerateDisplayItems();
+    std::vector<Group *> refs;
+    ag->ReferencesShown(&refs, /*exported=*/true);
+
+    SMesh all = {};
     SMesh *sm = NULL;
     if(SS.GW.showShaded || SS.GW.drawOccludedAs != GraphicsWindow::DrawOccludedAs::VISIBLE) {
-        Group *g = SK.GetGroup(SS.GW.activeGroup);
-        g->GenerateDisplayItems();
-        sm = &(g->displayMesh);
+        all.MakeFromCopyOf(&ag->displayMesh);
+        for(Group *r : refs) {
+            all.MakeFromCopyOf(&r->reference.mesh);
+        }
+        sm = &all;
     }
     if(sm && sm->IsEmpty()) {
         sm = NULL;
@@ -251,6 +264,9 @@ void SolveSpaceUI::ExportViewOrWireframeTo(const Platform::Path &filename, bool 
         g->GenerateDisplayItems();
         if(SS.GW.showEdges) {
             g->displayOutlines.ListTaggedInto(&edges, Style::SOLID_EDGE);
+            for(Group *r : refs) {
+                r->reference.outlines.ListTaggedInto(&edges, Style::SOLID_EDGE);
+            }
         }
     }
 
@@ -312,6 +328,7 @@ void SolveSpaceUI::ExportViewOrWireframeTo(const Platform::Path &filename, bool 
 
     edges.Clear();
     beziers.Clear();
+    all.Clear();
 }
 
 void SolveSpaceUI::ExportWireframeCurves(SEdgeList *sel, SBezierList *sbl,
@@ -938,7 +955,15 @@ void SolveSpaceUI::ExportMeshTo(const Platform::Path &filename) {
     Group *g = SK.GetGroup(SS.GW.activeGroup);
     g->GenerateDisplayItems();
 
-    SMesh *m = &(SK.GetGroup(SS.GW.activeGroup)->displayMesh);
+    // Add the references to the exported mesh. Do not check them with the solid.
+    SMesh all = {};
+    all.MakeFromCopyOf(&g->displayMesh);
+    std::vector<Group *> refs;
+    g->ReferencesShown(&refs, /*exported=*/true);
+    for(Group *r : refs) {
+        all.MakeFromCopyOf(&r->reference.mesh);
+    }
+    SMesh *m = &all;
     if(m->IsEmpty()) {
         Error(_("Active group mesh is empty; nothing to export."));
         return;
@@ -947,6 +972,7 @@ void SolveSpaceUI::ExportMeshTo(const Platform::Path &filename) {
     FILE *f = OpenFile(filename, "wb");
     if(!f) {
         Error("Couldn't write to '%s'", filename.raw.c_str());
+        all.Clear();
         return;
     }
     ShowNakedEdges(/*reportOnlyWhenNotOkay=*/true);
@@ -957,6 +983,8 @@ void SolveSpaceUI::ExportMeshTo(const Platform::Path &filename) {
         FILE *fMtl = OpenFile(mtlFilename, "wb");
         if(!fMtl) {
             Error("Couldn't write to '%s'", filename.raw.c_str());
+            fclose(f);
+            all.Clear();
             return;
         }
 
@@ -976,6 +1004,7 @@ void SolveSpaceUI::ExportMeshTo(const Platform::Path &filename) {
     }
 
     fclose(f);
+    all.Clear();
 
     SS.justExportedInfo.showOrigin = false;
     SS.justExportedInfo.draw = true;

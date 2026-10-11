@@ -300,7 +300,7 @@ public:
     bool IsEmpty() const;
     void RemapFaces(Group *g, int remap);
 
-    uint32_t FirstIntersectionWith(Point2d mp) const;
+    uint32_t FirstIntersectionWith(Point2d mp, double *nearest = NULL) const;
     bool IntersectionWith(Point2d mp, Vector *intersect) const;
 
     Vector GetCenterOfMass() const;

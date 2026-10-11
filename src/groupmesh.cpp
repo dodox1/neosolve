@@ -1067,14 +1067,10 @@ void Group::GenerateDisplayItems() {
             hasOwnGeometry = (runningSolidModel && !runningSolidModel->IsEmpty()) ||
                              !thisMesh.IsEmpty() || !thisShell.IsEmpty();
         }
-        // For IMPORT_SOLID, check cached mesh for ASSEMBLE, otherwise thisSolidModel
+        // An import set to assemble is a reference. It is shown next to the
+        // solid, not in it.
         if(type == Type::IMPORT_SOLID) {
-            if(meshCombine == CombineAs::ASSEMBLE && !linkFile.IsEmpty()) {
-                const SMesh *cached = SolidModelOcc::GetCachedMesh(linkFile);
-                hasOwnGeometry = (cached && !cached->l.IsEmpty());
-            } else {
-                hasOwnGeometry = (thisSolidModel && !thisSolidModel->IsEmpty());
-            }
+            hasOwnGeometry = !IsReference() && thisSolidModel && !thisSolidModel->IsEmpty();
             // Suppressed, it is drawn nowhere, as a suppressed extrude is not.
             if(suppress) hasOwnGeometry = false;
         }
@@ -1104,65 +1100,16 @@ void Group::GenerateDisplayItems() {
             // We do contribute new solid model, so we have to triangulate the
             // shell, and edge-find the mesh.
 
-#ifdef HAVE_OPENCASCADE
-            // For IMPORT_SOLID + ASSEMBLE: check if position unchanged to skip re-render
-            if(type == Type::IMPORT_SOLID && meshCombine == CombineAs::ASSEMBLE) {
-                Vector offset = {
-                    SK.GetParam(h.param(0))->val,
-                    SK.GetParam(h.param(1))->val,
-                    SK.GetParam(h.param(2))->val };
-                Quaternion q = {
-                    SK.GetParam(h.param(3))->val,
-                    SK.GetParam(h.param(4))->val,
-                    SK.GetParam(h.param(5))->val,
-                    SK.GetParam(h.param(6))->val };
-
-                // Check if position changed
-                bool quatEqual = (fabs(cachedQuat.w - q.w) < LENGTH_EPS &&
-                                  fabs(cachedQuat.vx - q.vx) < LENGTH_EPS &&
-                                  fabs(cachedQuat.vy - q.vy) < LENGTH_EPS &&
-                                  fabs(cachedQuat.vz - q.vz) < LENGTH_EPS);
-                bool positionUnchanged = cachedMeshValid &&
-                                         cachedOffset.Equals(offset) &&
-                                         quatEqual;
-
-                // Also check if previous group changed (we need to re-accumulate)
-                bool pgUnchanged = !pg || !pg->displayDirty;
-
-                // If position unchanged and previous group unchanged, keep existing display
-                if(positionUnchanged && pgUnchanged && !displayMesh.l.IsEmpty()) {
-                    displayDirty = false;
-                    return;  // Nothing changed, keep existing display
-                }
-            }
-#endif
-
             displayMesh.Clear();
 
 #ifdef HAVE_OPENCASCADE
             // For IMPORT_SOLID: transform and display mesh directly
-            // For ASSEMBLE mode, use cached mesh; otherwise use thisSolidModel
             const SMesh *sourceMesh = nullptr;
-
-            if(type == Type::IMPORT_SOLID) {
-                if(meshCombine == CombineAs::ASSEMBLE && !linkFile.IsEmpty()) {
-                    // Use cached mesh directly for ASSEMBLE mode
-                    sourceMesh = SolidModelOcc::GetCachedMesh(linkFile);
-                } else if(thisSolidModel && !thisSolidModel->IsEmpty()) {
-                    // Use thisSolidModel for other modes
-                    sourceMesh = &thisSolidModel->displayMesh;
-                }
+            if(type == Type::IMPORT_SOLID && thisSolidModel && !thisSolidModel->IsEmpty()) {
+                sourceMesh = &thisSolidModel->displayMesh;
             }
 
             if(type == Type::IMPORT_SOLID && sourceMesh && !sourceMesh->l.IsEmpty()) {
-                // For ASSEMBLE mode, first add previous group's geometry
-                if(meshCombine == CombineAs::ASSEMBLE && pg) {
-                    pg->GenerateDisplayItems();
-                    for(int i = 0; i < pg->displayMesh.l.n; i++) {
-                        displayMesh.AddTriangle(&pg->displayMesh.l[i]);
-                    }
-                }
-
                 // Get transformation parameters
                 Vector offset = {
                     SK.GetParam(h.param(0))->val,
@@ -1263,12 +1210,10 @@ void Group::GenerateDisplayItems() {
                     bool isDragging = (SS.GW.pending.operation == GraphicsWindow::Pending::DRAGGING_POINTS);
                     Vector dummy = Vector::From(0, 0, 1);
 
-                    // Get bounding box (from cache for ASSEMBLE, from thisSolidModel otherwise)
+                    // Get bounding box
                     Vector minPt = {}, maxPt = {};
                     bool hasBbox = false;
-                    if(meshCombine == CombineAs::ASSEMBLE && !linkFile.IsEmpty()) {
-                        hasBbox = SolidModelOcc::GetCachedBoundingBox(linkFile, &minPt, &maxPt);
-                    } else if(thisSolidModel && !thisSolidModel->IsEmpty()) {
+                    if(thisSolidModel && !thisSolidModel->IsEmpty()) {
                         thisSolidModel->GetBoundingBox(&minPt, &maxPt);
                         hasBbox = true;
                     }
@@ -1309,25 +1254,6 @@ void Group::GenerateDisplayItems() {
                         }
                         el.Clear();
                         handledImportSolid = true;
-                    } else if(meshCombine == CombineAs::ASSEMBLE && !linkFile.IsEmpty()) {
-                        // For ASSEMBLE mode: use cached edges (fast) instead of MakeOutlinesInto (slow)
-                        SEdgeList el = {};
-                        if(SolidModelOcc::GetCachedEdgesInto(linkFile, &el)) {
-                            for(SEdge *e = el.l.First(); e; e = el.l.NextAfter(e)) {
-                                Vector a = q.Rotate(e->a).Plus(offset);
-                                Vector b = q.Rotate(e->b).Plus(offset);
-                                rawOutlines.AddEdge(a, b, dummy, dummy);
-                            }
-                            el.Clear();
-                        }
-                        handledImportSolid = true;
-                    }
-
-                    // For ASSEMBLE: also include previous group's outlines
-                    if(handledImportSolid && meshCombine == CombineAs::ASSEMBLE && pg) {
-                        for(int i = 0; i < pg->displayOutlines.l.n; i++) {
-                            rawOutlines.l.Add(&pg->displayOutlines.l[i]);
-                        }
                     }
                 }
 
@@ -1444,9 +1370,32 @@ void Group::CreateOccFaceEntities(EntityList *el) {
 }
 #endif
 
+// Find the references that this group shows: imports set to assemble, up to
+// this group, visible and not suppressed. If exported is true, ignore
+// visibility. This also makes their meshes current.
+void Group::ReferencesShown(std::vector<Group *> *refs, bool exported) const {
+#ifdef HAVE_OPENCASCADE
+    for(hGroup hg : SK.groupOrder) {
+        Group *g = SK.GetGroup(hg);
+        if(g->IsReference() && (g->visible || exported) && !g->suppress) {
+            g->UpdateReference();
+            refs->push_back(g);
+        }
+        if(hg == h) break;
+    }
+#endif
+}
+
 void Group::DrawMesh(DrawMeshAs how, Canvas *canvas) {
     if(!(SS.GW.showShaded ||
          SS.GW.drawOccludedAs != GraphicsWindow::DrawOccludedAs::VISIBLE)) return;
+
+    std::vector<const SMesh *> meshes = { &displayMesh };
+    std::vector<Group *> refs;
+    ReferencesShown(&refs);
+    for(Group *r : refs) {
+        meshes.push_back(&r->reference.mesh);
+    }
 
     switch(how) {
         case DrawMeshAs::DEFAULT: {
@@ -1476,7 +1425,9 @@ void Group::DrawMesh(DrawMeshAs how, Canvas *canvas) {
 
             // Draw the shaded solid into the depth buffer for hidden line removal,
             // and if we're actually going to display it, to the color buffer too.
-            canvas->DrawMesh(displayMesh, hcfFront, hcfBack);
+            for(const SMesh *m : meshes) {
+                canvas->DrawMesh(*m, hcfFront, hcfBack);
+            }
 
             // Draw mesh edges, for debugging.
             if(SS.GW.showMesh) {
@@ -1487,10 +1438,12 @@ void Group::DrawMesh(DrawMeshAs how, Canvas *canvas) {
                 strokeTriangle.unit   = Canvas::Unit::PX;
                 Canvas::hStroke hcsTriangle = canvas->GetStroke(strokeTriangle);
                 SEdgeList edges = {};
-                for(const STriangle &t : displayMesh.l) {
-                    edges.AddEdge(t.a, t.b);
-                    edges.AddEdge(t.b, t.c);
-                    edges.AddEdge(t.c, t.a);
+                for(const SMesh *m : meshes) {
+                    for(const STriangle &t : m->l) {
+                        edges.AddEdge(t.a, t.b);
+                        edges.AddEdge(t.b, t.c);
+                        edges.AddEdge(t.c, t.a);
+                    }
                 }
                 canvas->DrawEdges(edges, hcsTriangle);
                 edges.Clear();
@@ -1510,7 +1463,9 @@ void Group::DrawMesh(DrawMeshAs how, Canvas *canvas) {
             if(he.v != 0 && SK.GetEntity(he)->IsFace()) {
                 faces.push_back(he.v);
             }
-            canvas->DrawFaces(displayMesh, faces, hcf);
+            for(const SMesh *m : meshes) {
+                canvas->DrawFaces(*m, faces, hcf);
+            }
             break;
         }
 
@@ -1529,7 +1484,9 @@ void Group::DrawMesh(DrawMeshAs how, Canvas *canvas) {
             for(auto &fc : gs.face) {
                 faces.push_back(fc.v);
             }
-            canvas->DrawFaces(displayMesh, faces, hcf);
+            for(const SMesh *m : meshes) {
+                canvas->DrawFaces(*m, faces, hcf);
+            }
             break;
         }
     }
@@ -1543,15 +1500,24 @@ void Group::Draw(Canvas *canvas) {
     GenerateDisplayItems();
     DrawMesh(DrawMeshAs::DEFAULT, canvas);
 
+    std::vector<const SOutlineList *> outlines = { &displayOutlines };
+    std::vector<Group *> refs;
+    ReferencesShown(&refs);
+    for(Group *r : refs) {
+        outlines.push_back(&r->reference.outlines);
+    }
+
     if(SS.GW.showEdges) {
         Canvas::Stroke strokeEdge = Style::Stroke(Style::SOLID_EDGE);
         strokeEdge.zIndex = 1;
         Canvas::hStroke hcsEdge = canvas->GetStroke(strokeEdge);
 
-        canvas->DrawOutlines(displayOutlines, hcsEdge,
-                             SS.GW.showOutlines
-                             ? Canvas::DrawOutlinesAs::EMPHASIZED_WITHOUT_CONTOUR
-                             : Canvas::DrawOutlinesAs::EMPHASIZED_AND_CONTOUR);
+        for(const SOutlineList *ol : outlines) {
+            canvas->DrawOutlines(*ol, hcsEdge,
+                                 SS.GW.showOutlines
+                                 ? Canvas::DrawOutlinesAs::EMPHASIZED_WITHOUT_CONTOUR
+                                 : Canvas::DrawOutlinesAs::EMPHASIZED_AND_CONTOUR);
+        }
 
         if(SS.GW.drawOccludedAs != GraphicsWindow::DrawOccludedAs::INVISIBLE) {
             Canvas::Stroke strokeHidden = Style::Stroke(Style::HIDDEN_EDGE);
@@ -1561,8 +1527,10 @@ void Group::Draw(Canvas *canvas) {
             strokeHidden.layer  = Canvas::Layer::OCCLUDED;
             Canvas::hStroke hcsHidden = canvas->GetStroke(strokeHidden);
 
-            canvas->DrawOutlines(displayOutlines, hcsHidden,
-                                 Canvas::DrawOutlinesAs::EMPHASIZED_AND_CONTOUR);
+            for(const SOutlineList *ol : outlines) {
+                canvas->DrawOutlines(*ol, hcsHidden,
+                                     Canvas::DrawOutlinesAs::EMPHASIZED_AND_CONTOUR);
+            }
         }
     }
 
@@ -1571,8 +1539,9 @@ void Group::Draw(Canvas *canvas) {
         strokeOutline.zIndex = 1;
         Canvas::hStroke hcsOutline = canvas->GetStroke(strokeOutline);
 
-        canvas->DrawOutlines(displayOutlines, hcsOutline,
-                             Canvas::DrawOutlinesAs::CONTOUR_ONLY);
+        for(const SOutlineList *ol : outlines) {
+            canvas->DrawOutlines(*ol, hcsOutline, Canvas::DrawOutlinesAs::CONTOUR_ONLY);
+        }
     }
 
 }

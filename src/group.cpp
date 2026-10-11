@@ -36,6 +36,9 @@ void Group::Clear() {
     displayOutlines.Clear();
     cachedTransformedMesh.Clear();
     cachedMeshValid = false;
+    reference.mesh.Clear();
+    reference.outlines.Clear();
+    reference.valid = false;
     impMesh.Clear();
     impShell.Clear();
     impEntity.Clear();

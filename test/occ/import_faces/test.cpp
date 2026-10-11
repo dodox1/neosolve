@@ -49,12 +49,17 @@ Vector CentroidOfBoxFace(Vector origin, Vector normal) {
     CHECK_TRUE(flat == 6);                                                      \
 } while(0)
 
-// Every triangle the group draws names one of its faces, facing the same way
-// where the face is flat.
+// Every triangle the group draws, as a reference when assembled, names one of
+// its faces, facing the same way where the face is flat.
 #define CHECK_MESH_NAMES_FACES(g) do {                                          \
     (g)->GenerateDisplayItems();                                                \
-    CHECK_TRUE((g)->displayMesh.l.n > 0);                                       \
-    for(const STriangle &tr : (g)->displayMesh.l) {                             \
+    const SMesh *m = &(g)->displayMesh;                                         \
+    if((g)->IsReference()) {                                                    \
+        (g)->UpdateReference();                                                 \
+        m = &(g)->reference.mesh;                                               \
+    }                                                                           \
+    CHECK_TRUE(m->l.n > 0);                                                     \
+    for(const STriangle &tr : m->l) {                                           \
         Entity *f = SK.entity.FindByIdNoOops(hEntity{ tr.meta.face });          \
         CHECK_TRUE(f != nullptr);                                               \
         CHECK_TRUE(f->IsFace() && f->group == (g)->h);                          \

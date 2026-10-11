@@ -67,6 +67,7 @@ void SolveSpaceUI::PushFromCurrentOnto(UndoStack *uk) {
         dest.displayOutlines = {};
         dest.cachedTransformedMesh = {};
         dest.cachedMeshValid = false;
+        dest.reference = {};
 
         dest.remap = src.remap;
 

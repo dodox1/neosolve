@@ -89,7 +89,8 @@ if(USE_OPENCASCADE)
         occ/revolve_two_sided/test.cpp
         occ/pick_circular_edge/test.cpp
         occ/import_faces/test.cpp
-        occ/import_sketch/test.cpp)
+        occ/import_sketch/test.cpp
+        occ/import_reference/test.cpp)
 endif()
 
 add_executable(solvespace-testsuite

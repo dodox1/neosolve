@@ -9,6 +9,12 @@
 
 #ifdef HAVE_OPENCASCADE
 
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRep_Builder.hxx>
+#include <TopoDS_Compound.hxx>
+#include <gp_Quaternion.hxx>
+#include <gp_Trsf.hxx>
+
 namespace SolveSpace {
 
 // Magic group numbers for imported solid bounding box entities (similar to importmesh.cpp)
@@ -159,6 +165,113 @@ void Group::GenerateImportedFaces(EntityList *el) {
         }
         el->Add(&en);
     }
+}
+
+bool Group::IsReference() const {
+    return type == Type::IMPORT_SOLID && meshCombine == CombineAs::ASSEMBLE &&
+           !linkFile.IsEmpty();
+}
+
+// Calculate the mesh and edges of the import at its position. The triangles
+// keep the face handles. Do this again only when the import moves or its file
+// loads again.
+void Group::UpdateReference() {
+    Vector offset = Vector::From(SK.GetParam(h.param(0))->val,
+                                 SK.GetParam(h.param(1))->val,
+                                 SK.GetParam(h.param(2))->val);
+    Quaternion q = Quaternion::From(SK.GetParam(h.param(3))->val,
+                                    SK.GetParam(h.param(4))->val,
+                                    SK.GetParam(h.param(5))->val,
+                                    SK.GetParam(h.param(6))->val);
+    Quaternion rq = reference.q;
+    if(reference.valid && reference.offset.Equals(offset) &&
+       fabs(rq.w - q.w) < LENGTH_EPS && fabs(rq.vx - q.vx) < LENGTH_EPS &&
+       fabs(rq.vy - q.vy) < LENGTH_EPS && fabs(rq.vz - q.vz) < LENGTH_EPS) return;
+
+    reference.mesh.Clear();
+    reference.outlines.Clear();
+    const SMesh *source = SolidModelOcc::GetCachedMesh(linkFile);
+    if(source) {
+        for(STriangle tr : source->l) {
+            tr.a = q.Rotate(tr.a).Plus(offset);
+            tr.b = q.Rotate(tr.b).Plus(offset);
+            tr.c = q.Rotate(tr.c).Plus(offset);
+            tr.an = q.Rotate(tr.an);
+            tr.bn = q.Rotate(tr.bn);
+            tr.cn = q.Rotate(tr.cn);
+            tr.meta.face = ImportedFaceHandle(tr.meta.face);
+            tr.meta.color = color;
+            reference.mesh.AddTriangle(&tr);
+        }
+        reference.mesh.PrecomputeTransparency();
+    }
+    SEdgeList el = {};
+    if(SolidModelOcc::GetCachedEdgesInto(linkFile, &el)) {
+        SOutlineList raw = {};
+        Vector n = Vector::From(0, 0, 1);
+        for(const SEdge &e : el.l) {
+            raw.AddEdge(q.Rotate(e.a).Plus(offset), q.Rotate(e.b).Plus(offset), n, n,
+                        /*tag=*/1);
+        }
+        PolylineBuilder builder;
+        builder.MakeFromOutlines(raw);
+        builder.GenerateOutlines(&reference.outlines);
+        raw.Clear();
+    }
+    el.Clear();
+    reference.offset = offset;
+    reference.q = q;
+    reference.valid = true;
+}
+
+// Get the solid of the import at its position.
+static TopoDS_Shape PlacedShape(const Group *g) {
+    TopoDS_Shape shape;
+    if(!SolidModelOcc::GetCachedShape(g->linkFile, &shape)) return TopoDS_Shape();
+    gp_Trsf trsf;
+    trsf.SetRotation(gp_Quaternion(SK.GetParam(g->h.param(4))->val,
+                                   SK.GetParam(g->h.param(5))->val,
+                                   SK.GetParam(g->h.param(6))->val,
+                                   SK.GetParam(g->h.param(3))->val));
+    trsf.SetTranslationPart(gp_Vec(SK.GetParam(g->h.param(0))->val,
+                                   SK.GetParam(g->h.param(1))->val,
+                                   SK.GetParam(g->h.param(2))->val));
+    return BRepBuilderAPI_Transform(shape, trsf, Standard_True).Shape();
+}
+
+// Put the solid of this group and the exported references into one shape.
+// Return false if there is no solid.
+bool Group::ShapeWithReferences(SolidModelOcc *out) const {
+    std::vector<Group *> refs;
+    ReferencesShown(&refs, /*exported=*/true);
+    bool own = runningSolidModel && !runningSolidModel->IsEmpty();
+    if(refs.empty()) {
+        if(own) out->shapeAcc = runningSolidModel->shapeAcc;
+        return own;
+    }
+    BRep_Builder builder;
+    TopoDS_Compound all;
+    builder.MakeCompound(all);
+    if(own) builder.Add(all, runningSolidModel->shapeAcc);
+    for(Group *r : refs) {
+        TopoDS_Shape s = PlacedShape(r);
+        if(!s.IsNull()) builder.Add(all, s);
+    }
+    out->shapeAcc = all;
+    return true;
+}
+
+// Cut the exported references with the plane of Export 2d Section.
+bool Group::MakeReferenceSectionEdgesInto(Vector n, double d, SEdgeList *sel,
+                                          SBezierList *sbl) const {
+    std::vector<Group *> refs;
+    ReferencesShown(&refs, /*exported=*/true);
+    for(Group *r : refs) {
+        SolidModelOcc m;
+        m.shapeAcc = PlacedShape(r);
+        if(!m.shapeAcc.IsNull()) m.MakeSectionEdgesInto(n, d, sel, sbl);
+    }
+    return !refs.empty();
 }
 
 void Group::PopulateBoundingBoxEntities() {

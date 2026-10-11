@@ -540,9 +540,14 @@ void GraphicsWindow::HitTestMakeSelection(Point2d mp) {
 
             if(!hasPointInHover) {
                 Group *g = SK.GetGroup(activeGroup);
-                SMesh *m = &(g->displayMesh);
-
-                uint32_t v = m->FirstIntersectionWith(mp);
+                double t = VERY_NEGATIVE;
+                uint32_t v = g->displayMesh.FirstIntersectionWith(mp, &t);
+                std::vector<Group *> refs;
+                g->ReferencesShown(&refs);
+                for(Group *r : refs) {
+                    uint32_t rv = r->reference.mesh.FirstIntersectionWith(mp, &t);
+                    if(rv) v = rv;
+                }
                 // The face handle is baked into the mesh triangles, so it can
                 // name an entity that does not exist; check before hovering.
                 hEntity hf = { v };
