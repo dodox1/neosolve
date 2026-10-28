@@ -1009,11 +1009,8 @@ static Platform::MessageDialog::Response LocateImportedFile(const Platform::Path
 
     using Platform::MessageDialog;
     if(!dialog) {
-        // There are no dialogs to run without a window: the headless backend
-        // returns an empty handle, and solvespace-cli used to dereference it and
-        // die on any file whose linked image or sketch had moved. Answer as
-        // declining to look for it, the only thing a batch run can do, and say
-        // which file it was.
+        // When running the headless CLI version no dialog is possible, so
+        // decline to locate the file.
         dbp("The linked file '%s' is not present; continuing without it.",
             filename.raw.c_str());
         return MessageDialog::Response::NO;

@@ -30,6 +30,7 @@ public:
     Platform::Path  fontFile; // or resource path/name as res://<path>
     std::string     name;
     FT_FaceRec_    *fontFace;
+    long            faceIndex;
     double          capHeight;
     // Why this font could not be used, or why its cap height is a guess.
     // Recorded rather than printed: scanning a font collection meets both of
