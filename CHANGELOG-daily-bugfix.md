@@ -10,7 +10,8 @@ and the native kernel cannot do them. Most of the work below is sewing up the
 seam between the two kernels, and where a fix belongs upstream in SolveSpace it
 goes there instead.
 
-`CHANGELOG.md` beside this file is upstream's and ends where the fork diverged.
+`CHANGELOG.md` beside this file is upstream's, up to the SolveSpace release this
+branch is based on.
 
 Where it stands
 ---------------
@@ -25,6 +26,13 @@ the same edges after you edit an earlier sketch, see `Known limits`.
 
 Unreleased
 ----------
+
+* Based on SolveSpace 3.3. The upstream fixes that used to be picked one by one
+  are merged now, and later upstream changes come in the same way. New from
+  3.3: every face of a `.ttc` font collection is listed and can be used. A face
+  other than the first is saved as `name.ttc#1`, which older SolveSpace and
+  neosolve do not find, and they draw an X in place of the text.
+* The window title says neosolve, not SolveSpace.
 
 * A circular edge can be picked for a fillet or a chamfer. Clicking one used to
   report that the selection held no edge, because matching recognised straight
