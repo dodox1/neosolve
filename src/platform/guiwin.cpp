@@ -130,7 +130,7 @@ BOOL ssAdjustWindowRectExForDpi(LPRECT lpRect, DWORD dwStyle, BOOL bMenu,
 //-----------------------------------------------------------------------------
 
 static std::wstring PrepareTitle(const std::string &s) {
-    return Widen("SolveSpace - " + s);
+    return Widen("neosolve - " + s);
 }
 
 static std::string NegateMnemonics(const std::string &label) {
@@ -169,7 +169,7 @@ void FatalError(const std::string &message) {
     handlingFatalError = true;
 
     switch(MessageBoxW(NULL, Platform::Widen(message + "\nGenerate debug report?").c_str(),
-                       L"Fatal error — SolveSpace",
+                       L"Fatal error — neosolve",
                        MB_ICONERROR|MB_TASKMODAL|MB_SETFOREGROUND|MB_TOPMOST|
                        MB_OKCANCEL|MB_DEFBUTTON2)) {
         case IDOK:
