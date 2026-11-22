@@ -1435,7 +1435,9 @@ public:
     void HideEditor() override {
         if(!IsEditorVisible()) return;
 
+        bool hadFocus = GetFocus() == hEditor;
         ShowWindow(hEditor, SW_HIDE);
+        if(hadFocus) SetFocus(hWindow);
     }
 
     void SetScrollbarVisible(bool visible) override {
@@ -1930,7 +1932,9 @@ public:
 
     void HideEditor() override {
         if(!IsEditorVisible()) return;
+        bool hadFocus = GetFocus() == hEditor;
         ShowWindow(hEditor, SW_HIDE);
+        if(hadFocus) SetFocus(hWindow);
     }
 
     void SetScrollbarVisible(bool visible) override {
