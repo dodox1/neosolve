@@ -1731,6 +1731,16 @@ public:
             case WM_MOUSEMOVE:
             case WM_MOUSEWHEEL:
             case WM_MOUSELEAVE: {
+                if(msg == WM_MOUSEWHEEL) {
+                    POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+                    HWND hWindowUnderMouse = WindowFromPoint(pt);
+                    if(hWindowUnderMouse && hWindowUnderMouse != h &&
+                       hWindowUnderMouse != window->hEditor) {
+                        SendMessageW(hWindowUnderMouse, msg, wParam, lParam);
+                        return 0;
+                    }
+                }
+
                 double pixelRatio = window->GetDevicePixelRatio();
 
                 MouseEvent event = {};
@@ -1934,7 +1944,7 @@ public:
         if(!IsEditorVisible()) return;
         bool hadFocus = GetFocus() == hEditor;
         ShowWindow(hEditor, SW_HIDE);
-        if(hadFocus) SetFocus(hWindow);
+        if(hadFocus) SetFocus(parentWindow->hWindow);
     }
 
     void SetScrollbarVisible(bool visible) override {
